@@ -5,7 +5,7 @@ import random
 from dataclasses import dataclass
 from typing import List
 
-from panda3d.core import NodePath, TransparencyAttrib, Vec3
+from panda3d.core import AmbientLight, NodePath, TransparencyAttrib, Vec3, Vec4
 
 from ..primitives import make_box, make_octahedron
 from .weather_presets import WeatherPreset
@@ -21,11 +21,11 @@ class WeatherParticle:
 
 
 class WeatherField:
-    """Camera-centred weather volume with reusable geometry.
+    """Camera-centred, reusable weather volume with adaptive density.
 
-    Particles are deliberately simulated in a local volume around the camera,
-    so a large-looking storm does not need thousands of persistent world
-    objects.  The system reuses nodes and wraps them when they leave the volume.
+    Particles live in a local box around the camera and are wrapped instead of
+    recreated.  Runtime scaling hides a tail of the pool, which is much cheaper
+    than destroying/rebuilding geometry during an FPS drop.
     """
 
     def __init__(self, app, root: NodePath, preset: WeatherPreset, count: int, seed: int) -> None:
@@ -36,7 +36,25 @@ class WeatherField:
         self.particles: List[WeatherParticle] = []
         self.time = 0.0
         self.flash = 0.0
+        self.runtime_scale = 1.0
+        self._visible_count = 0
+        self._light_node = None
         self._create(max(0, count))
+        self._create_lightning_light()
+        self.set_runtime_scale(1.0)
+
+    def _create_lightning_light(self) -> None:
+        if self.preset.lightning_chance <= 0.0:
+            return
+        if not bool(self.app.save.setting("lightning_world_flash", True)):
+            return
+        try:
+            light = AmbientLight("weather-lightning-flash")
+            light.setColor(Vec4(0.0, 0.0, 0.0, 1.0))
+            self._light_node = self.app.render.attachNewNode(light)
+            self.app.render.setLight(self._light_node)
+        except Exception:
+            self._light_node = None
 
     def _random_offset(self) -> Vec3:
         radius = self.preset.radius
@@ -83,6 +101,23 @@ class WeatherField:
                 WeatherParticle(node, offset, velocity, self.rng.uniform(-90, 90), self.rng.uniform(0, math.tau))
             )
 
+    def set_runtime_scale(self, scale: float) -> None:
+        self.runtime_scale = max(0.35, min(1.0, float(scale)))
+        if not self.particles:
+            self._visible_count = 0
+            return
+        # Keep a useful minimum so weather never vanishes completely.
+        minimum = min(len(self.particles), 12)
+        target = max(minimum, int(round(len(self.particles) * self.runtime_scale)))
+        if target == self._visible_count:
+            return
+        self._visible_count = target
+        for index, particle in enumerate(self.particles):
+            if index < target:
+                particle.node.show()
+            else:
+                particle.node.hide()
+
     def update(self, dt: float) -> None:
         self.time += dt
         camera_world = self.app.camera.getPos(self.app.render)
@@ -91,7 +126,11 @@ class WeatherField:
         low = -self.preset.vertical_range * 0.45
         high = self.preset.vertical_range
 
-        for particle in self.particles:
+        # Only simulate visible nodes. Hidden tail nodes remain pooled and can be
+        # brought back instantly when the adaptive governor raises quality.
+        for index, particle in enumerate(self.particles):
+            if index >= self._visible_count:
+                continue
             particle.phase += dt
             particle.offset += particle.velocity * dt
             if self.preset.kind in ("ash", "dust", "snow"):
@@ -110,13 +149,25 @@ class WeatherField:
         if self.preset.lightning_chance > 0.0:
             if self.rng.random() < dt * self.preset.lightning_chance:
                 self.flash = 1.0
-            self.flash = max(0.0, self.flash - dt * 4.0)
+            self.flash = max(0.0, self.flash - dt * 3.4)
             if self.flash > 0.0:
-                boost = 1.0 + self.flash * 1.35
-                self.root.setColorScale(boost, boost, boost * 1.08, 1.0)
+                boost = 1.0 + self.flash * 0.65
+                self.root.setColorScale(boost, boost, boost * 1.05, 1.0)
             else:
                 self.root.clearColorScale()
 
+            if self._light_node is not None and not self._light_node.isEmpty():
+                light = self._light_node.node()
+                intensity = self.flash * self.flash
+                light.setColor(Vec4(0.58 * intensity, 0.68 * intensity, 0.95 * intensity, 1.0))
+
     def destroy(self) -> None:
+        if self._light_node is not None and not self._light_node.isEmpty():
+            try:
+                self.app.render.clearLight(self._light_node)
+            except Exception:
+                pass
+            self._light_node.removeNode()
+            self._light_node = None
         if not self.root.isEmpty():
             self.root.removeNode()
