@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import ClockObject, WindowProperties, loadPrcFileData
 
@@ -36,6 +38,8 @@ class NexusApp(ShowBase):
         self.gameplay = GameplayDirector(self)
         self.menu = None
         self.mode = None
+        self.simulation_step_target = 1.0 / 60.0
+        self.max_simulation_substeps = 3
         self.accept("f11", self.toggle_fullscreen)
         self.accept("alt-enter", self.toggle_fullscreen)
         self.apply_window_settings()
@@ -130,9 +134,23 @@ class NexusApp(ShowBase):
         self.graphics.update(dt)
         if self.menu is not None:
             self.menu.update(dt)
+
         if self.mode is not None and self.mode.active:
-            self.mode.update(dt)
-        self.gameplay.update(dt, self.mode)
+            # When a frame hitches, split simulation into smaller deterministic
+            # chunks. This reduces tunnelling and unstable steering without
+            # forcing the renderer itself to run multiple times.
+            steps = max(1, min(
+                self.max_simulation_substeps,
+                int(math.ceil(dt / self.simulation_step_target)),
+            ))
+            step_dt = dt / steps if steps > 0 else dt
+            for _ in range(steps):
+                if self.mode is None or not self.mode.active:
+                    break
+                self.mode.update(step_dt)
+                self.gameplay.update(step_dt, self.mode)
+        else:
+            self.gameplay.update(dt, self.mode)
         return task.cont
 
     def userExit(self) -> None:
