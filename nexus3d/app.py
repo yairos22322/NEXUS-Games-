@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import ClockObject, WindowProperties, loadPrcFileData
 
@@ -145,6 +143,10 @@ class NexusApp(ShowBase):
                 pass
             self.mode = None
         self.save.save()
+        try:
+            self.gameplay.destroy()
+        except Exception:
+            pass
         self.graphics.destroy()
         self.audio.stop_all()
         super().userExit()
