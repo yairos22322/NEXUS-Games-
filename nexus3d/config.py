@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 Color = Tuple[float, float, float, float]
 
-APP_TITLE = "NEXUS FIVE 3D // NEXT GEN"
+APP_TITLE = "NEXUS FIVE 3D // SIMULATION V3"
 WINDOW_WIDTH = 1600
 WINDOW_HEIGHT = 900
 TARGET_FPS = 144
@@ -48,8 +48,8 @@ GAMES: List[GameMeta] = [
         subtitle="TACTICAL ARENA",
         genre="3D FPS",
         description=(
-            "First-person arena combat with hitscan weapons, ADS, recoil, tactical enemy roles, "
-            "wave escalation, armor, pickups, sprint and dash."
+            "First-person combat with ADS, recoil, tactical roles, A* pathfinding, destructible cover, "
+            "weather-aware perception, contracts, wave escalation, armor, pickups, sprint and dash."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
@@ -62,8 +62,8 @@ GAMES: List[GameMeta] = [
         subtitle="MIDNIGHT CIRCUIT",
         genre="3D DRIVING",
         description=(
-            "High-speed third-person traffic run with nitro, handbrake drifting, intelligent traffic, "
-            "close-call combos, overtakes and escalating road pressure."
+            "High-speed third-person traffic run with nitro, handbrake drifting, intelligent overtaking, "
+            "wet-road grip changes, skid marks, contracts, close calls and escalating road pressure."
         ),
         controls=["A/D STEER", "W ACCELERATE", "S BRAKE", "SHIFT NITRO", "SPACE HANDBRAKE"],
         accent=MAGENTA,
@@ -76,8 +76,8 @@ GAMES: List[GameMeta] = [
         subtitle="LAST DISTRICT",
         genre="3D SURVIVAL",
         description=(
-            "Over-the-shoulder survival shooter with surrounding horde behaviour, elite infected, "
-            "medkits, armor drops, shotgun bursts and increasingly brutal nights."
+            "Over-the-shoulder survival with surround behaviour, A* obstacle routing, destructible props, "
+            "weather-aware horde timing, contracts, elite infected, medkits and shotgun combat."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
         accent=GREEN,
@@ -91,7 +91,7 @@ GAMES: List[GameMeta] = [
         genre="3D SPACE COMBAT",
         description=(
             "Arcade space combat with lasers, missiles, regenerating shields, evasive formations, "
-            "capital ships and boss encounters in a procedural star field."
+            "capital ships, contracts and boss encounters in a procedural star field."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
         accent=BLUE,
@@ -104,8 +104,8 @@ GAMES: List[GameMeta] = [
         subtitle="SKYLINE BREACH",
         genre="3D PARKOUR",
         description=(
-            "Third-person rooftop run with buffered jumps, vaulting, wall runs, slides, air dashes, "
-            "laser gates, drones and score multipliers."
+            "Third-person rooftop run with buffered jumps, vaulting, wall runs, wind influence, slides, "
+            "air dashes, contracts, laser gates, drones and score multipliers."
         ),
         controls=["A/D STRAFE", "SPACE JUMP / WALL JUMP", "SHIFT DASH", "CTRL SLIDE", "W SPEED PUSH"],
         accent=ORANGE,
@@ -147,4 +147,8 @@ DEFAULT_SETTINGS = {
     "advanced_ai": True,
     "motion_fx": True,
     "procedural_rig_detail": True,
+    "weather_gameplay": True,
+    "contracts": True,
+    "destructible_props": True,
+    "surface_feedback": True,
 }
