@@ -1,0 +1,29 @@
+NEXUS FIVE 3D // ULTRA - BUILD STATS
+
+Engine: Panda3D 1.10.16
+Optional PBR pipeline: panda3d-simplepbr 0.13.1
+Language: Python + GLSL shaders
+Playable modes: 5
+Python source files: 31
+Python source lines: 77,786
+Graphics quality presets: LOW / MEDIUM / HIGH / ULTRA / CINEMATIC
+Visual environment presets: 2,100
+Material presets: 1,900
+Weather presets: 600
+Procedural sky shader: yes
+Procedural animated water shader: yes
+Dynamic shadow maps: yes
+PBR metallic/roughness materials: yes
+Dynamic weather: yes
+Distant skyline layer: yes
+Fallback HDR/Bloom/SSAO path: yes
+JSON profile saving: yes
+Fullscreen/FOV/sensitivity: yes
+
+Validation performed in build environment:
+- Python AST syntax check: PASS
+- Python compileall: PASS
+- Visual/material/weather preset integrity: PASS
+- Full rendered Panda3D runtime: NOT EXECUTED because Panda3D could not be installed in the build container (network package download unavailable).
+
+Run CHECK_PROJECT.py locally to validate the extracted source tree.

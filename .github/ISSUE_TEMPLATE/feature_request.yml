@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a gameplay, graphics, UI, or tooling improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Feature
+      description: What should be added or changed?
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Why would this improve the project?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Graphics
+        - Gameplay
+        - User interface
+        - Performance
+        - Audio
+        - Tools
+        - Other

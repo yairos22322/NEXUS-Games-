@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible problem in NEXUS FIVE 3D ULTRA
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launch...
+        2. Open...
+        3. Press...
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "Example: Python 3.12.5"
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Example: Windows 11"
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output / screenshot
+      description: Paste the full traceback or attach a screenshot.
+      render: shell

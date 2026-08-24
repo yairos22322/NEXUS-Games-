@@ -1,0 +1,60 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build output
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Local game/runtime data
+save_data.json
+settings.json
+profile.json
+*.save
+*.sav
+*.log
+logs/
+crash_reports/
+
+# IDE/editor
+.vscode/
+.idea/
+*.code-workspace
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary / backup files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Local installers and archives
+*.zip
+*.7z
+*.rar
+
+# Optional local asset working files
+*.blend1
