@@ -6,23 +6,29 @@ from typing import Iterable, Optional
 from panda3d.core import Vec3
 
 from .combat_feel import CombatFeelDirector
+from .contracts import ContractDirector
+from .destruction import DestructibleWorldDirector
 from .difficulty import AdaptiveDifficultyDirector
+from .environment_gameplay import EnvironmentGameplayDirector
+from .navigation import NavigationDirector
 from .parkour import ParkourDirector
 from .space_tactics import SpaceCombatDirector
+from .spatial import SpatialHash2D
 from .tactical_ai import TacticalAI
 from .vehicle_ai import VehicleDynamicsDirector
 from ..graphics.motion_fx import MotionFX
 from ..graphics.rig_detail import RigDetailDirector
+from ..graphics.surface_feedback import SurfaceFeedbackDirector
 
 
 class GameplayDirector:
-    """Cross-mode gameplay, camera and simulation polish.
+    """Cross-mode gameplay, camera, AI and world-simulation director.
 
-    Each mini-game remains responsible for its core rules. The shared director
-    layers higher-level systems around those rules: tactical perception,
-    adaptive encounter pressure, traffic decisions, space formations, parkour
-    assists, FPS weapon feel, crowd separation, dynamic field of view, runtime
-    rig detailing and cinematic motion FX.
+    The five modes remain authoritative for their core rules. This layer adds
+    systems that are expensive or repetitive to implement five times: tactical
+    perception, A* navigation, dynamic contracts, weather/gameplay coupling,
+    destructible combat props, traffic/space/parkour logic, combat feel,
+    spatial broadphase, rig detail, surface feedback and motion FX.
     """
 
     SPEED_REFERENCE = {
@@ -44,18 +50,25 @@ class GameplayDirector:
     def __init__(self, app) -> None:
         self.app = app
         self.tactical = TacticalAI()
+        self.navigation = NavigationDirector()
         self.vehicles = VehicleDynamicsDirector()
         self.space = SpaceCombatDirector()
         self.parkour = ParkourDirector()
         self.combat_feel = CombatFeelDirector()
         self.difficulty = AdaptiveDifficultyDirector()
+        self.environment_gameplay = EnvironmentGameplayDirector(app)
+        self.contracts = ContractDirector(app)
+        self.destruction = DestructibleWorldDirector()
         self.motion_fx = MotionFX(app)
         self.rig_detail = RigDetailDirector(app)
+        self.surface_feedback = SurfaceFeedbackDirector(app)
+        self._spatial = SpatialHash2D(cell_size=3.2)
         self._last_camera_pos: Optional[Vec3] = None
         self._fov_velocity = 0.0
         self._current_fov = float(app.save.setting("fov", 82.0))
         self._crowd_accumulator = 0.0
         self._camera_lean = 0.0
+        self._last_nav_revision = -1
 
     def reset(self) -> None:
         self._last_camera_pos = None
@@ -63,14 +76,21 @@ class GameplayDirector:
         self._current_fov = float(self.app.save.setting("fov", 82.0))
         self._crowd_accumulator = 0.0
         self._camera_lean = 0.0
+        self._last_nav_revision = -1
+        self._spatial.clear()
         self.tactical.reset()
+        self.navigation.reset()
         self.vehicles.reset()
         self.space.reset()
         self.parkour.reset()
         self.combat_feel.reset()
         self.difficulty.reset()
+        self.environment_gameplay.reset()
+        self.contracts.reset()
+        self.destruction.reset()
         self.motion_fx.reset()
         self.rig_detail.reset()
+        self.surface_feedback.reset()
 
     def update(self, dt: float, mode) -> None:
         if dt <= 0.0:
@@ -81,17 +101,35 @@ class GameplayDirector:
             self._last_camera_pos = None
             return
 
+        # Destruction attaches its runtime colliders first so the navigation grid
+        # sees the same combat geometry as the player on its first build.
+        if bool(self.app.save.setting("destructible_props", True)):
+            self.destruction.update(dt, mode)
+        nav_revision = int(getattr(mode, "nav_revision", 0))
+        if nav_revision != self._last_nav_revision:
+            self._last_nav_revision = nav_revision
+            self.navigation.reset()
+
+        if bool(self.app.save.setting("weather_gameplay", True)):
+            self.environment_gameplay.update(dt, mode)
+
         advanced_ai = bool(self.app.save.setting("advanced_ai", True))
         if advanced_ai:
             self.tactical.update(dt, mode)
+            self.navigation.update(dt, mode)
             self.vehicles.update(dt, mode)
             self.space.update(dt, mode)
             self.parkour.update(dt, mode)
+
         self.combat_feel.update(dt, mode)
         if bool(self.app.save.setting("adaptive_difficulty", True)):
             self.difficulty.update(dt, mode)
         if bool(self.app.save.setting("procedural_rig_detail", True)):
             self.rig_detail.update(dt, mode)
+        if bool(self.app.save.setting("contracts", True)):
+            self.contracts.update(dt, mode)
+        if bool(self.app.save.setting("surface_feedback", True)):
+            self.surface_feedback.update(dt, mode)
 
         self._update_dynamic_fov(dt, mode)
         self._update_camera_lean(dt, mode)
@@ -100,6 +138,8 @@ class GameplayDirector:
         else:
             self.motion_fx.update(dt, None)
 
+        # Crowd broadphase runs at 30 Hz. Spatial hashing avoids the old global
+        # every-pair scan when zombie waves become dense.
         self._crowd_accumulator += dt
         if advanced_ai and self._crowd_accumulator >= 1.0 / 30.0:
             step = min(0.08, self._crowd_accumulator)
@@ -108,6 +148,14 @@ class GameplayDirector:
             self._separate_actor_group(mode, getattr(mode, "zombies", None), step)
 
     def destroy(self) -> None:
+        try:
+            self.contracts.reset()
+        except Exception:
+            pass
+        try:
+            self.surface_feedback.destroy()
+        except Exception:
+            pass
         try:
             self.motion_fx.destroy()
         except Exception:
@@ -205,37 +253,48 @@ class GameplayDirector:
     def _separate_actor_group(self, mode, group: Optional[Iterable], dt: float) -> None:
         if not group:
             return
-        actors = [actor for actor in group if getattr(actor, "alive", True) and hasattr(actor, "rig")]
+        actors = [
+            actor
+            for actor in group
+            if getattr(actor, "alive", True)
+            and hasattr(actor, "rig")
+            and not actor.rig.root.isEmpty()
+        ]
         if len(actors) < 2:
             return
 
-        actors = actors[:56]
-        pushes = [Vec3(0) for _ in actors]
+        self._spatial.rebuild(
+            (
+                actor,
+                actor.rig.get_pos(),
+                float(getattr(actor, "radius", 0.48)),
+            )
+            for actor in actors[:120]
+        )
+        pushes: dict[int, Vec3] = {id(actor): Vec3(0) for actor in actors[:120]}
 
-        for i in range(len(actors)):
-            pos_a = actors[i].rig.get_pos()
-            radius_a = float(getattr(actors[i], "radius", 0.48))
-            for j in range(i + 1, len(actors)):
-                pos_b = actors[j].rig.get_pos()
-                radius_b = float(getattr(actors[j], "radius", 0.48))
-                delta = Vec3(pos_a.x - pos_b.x, pos_a.y - pos_b.y, 0.0)
-                dist_sq = delta.lengthSquared()
-                desired = radius_a + radius_b + 0.14
-                if dist_sq >= desired * desired:
-                    continue
-                if dist_sq < 0.00001:
-                    angle = (i * 1.618 + j * 0.731) * 6.283185307
-                    direction = Vec3(math.cos(angle), math.sin(angle), 0.0)
-                    distance = 0.001
-                else:
-                    distance = math.sqrt(dist_sq)
-                    direction = delta / distance
-                penetration = desired - distance
-                impulse = direction * min(0.42, penetration * 0.52)
-                pushes[i] += impulse
-                pushes[j] -= impulse
+        for entry_a, entry_b in self._spatial.iter_unique_pairs(extra_radius=0.14):
+            actor_a = entry_a.obj
+            actor_b = entry_b.obj
+            delta = Vec3(entry_a.pos.x - entry_b.pos.x, entry_a.pos.y - entry_b.pos.y, 0.0)
+            dist_sq = delta.lengthSquared()
+            desired = entry_a.radius + entry_b.radius + 0.14
+            if dist_sq >= desired * desired:
+                continue
+            if dist_sq < 0.00001:
+                angle = (id(actor_a) * 0.0000017 + id(actor_b) * 0.0000009) % math.tau
+                direction = Vec3(math.cos(angle), math.sin(angle), 0.0)
+                distance = 0.001
+            else:
+                distance = math.sqrt(dist_sq)
+                direction = delta / distance
+            penetration = desired - distance
+            impulse = direction * min(0.42, penetration * 0.52)
+            pushes[id(actor_a)] += impulse
+            pushes[id(actor_b)] -= impulse
 
-        for actor, push in zip(actors, pushes):
+        for actor in actors[:120]:
+            push = pushes.get(id(actor), Vec3(0))
             if push.lengthSquared() < 0.000001:
                 continue
             pos = actor.rig.get_pos()
