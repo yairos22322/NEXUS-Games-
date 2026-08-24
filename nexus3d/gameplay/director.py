@@ -5,6 +5,7 @@ from typing import Iterable, Optional
 
 from panda3d.core import Vec3
 
+from .combat_feel import CombatFeelDirector
 from .difficulty import AdaptiveDifficultyDirector
 from .parkour import ParkourDirector
 from .space_tactics import SpaceCombatDirector
@@ -20,8 +21,8 @@ class GameplayDirector:
     Each mini-game remains responsible for its core rules. The shared director
     layers higher-level systems around those rules: tactical perception,
     adaptive encounter pressure, traffic decisions, space formations, parkour
-    assists, crowd separation, dynamic field of view, runtime rig detailing and
-    cinematic motion FX.
+    assists, FPS weapon feel, crowd separation, dynamic field of view, runtime
+    rig detailing and cinematic motion FX.
     """
 
     SPEED_REFERENCE = {
@@ -46,6 +47,7 @@ class GameplayDirector:
         self.vehicles = VehicleDynamicsDirector()
         self.space = SpaceCombatDirector()
         self.parkour = ParkourDirector()
+        self.combat_feel = CombatFeelDirector()
         self.difficulty = AdaptiveDifficultyDirector()
         self.motion_fx = MotionFX(app)
         self.rig_detail = RigDetailDirector(app)
@@ -65,6 +67,7 @@ class GameplayDirector:
         self.vehicles.reset()
         self.space.reset()
         self.parkour.reset()
+        self.combat_feel.reset()
         self.difficulty.reset()
         self.motion_fx.reset()
         self.rig_detail.reset()
@@ -85,6 +88,7 @@ class GameplayDirector:
         self.vehicles.update(dt, mode)
         self.space.update(dt, mode)
         self.parkour.update(dt, mode)
+        self.combat_feel.update(dt, mode)
         self.difficulty.update(dt, mode)
         self.rig_detail.update(dt, mode)
 
@@ -149,6 +153,13 @@ class GameplayDirector:
             boost += 3.5
         if bool(getattr(mode, "boosting", False)):
             boost += 2.5
+
+        ads_amount = max(0.0, min(1.0, float(getattr(mode, "ads_amount", 0.0) or 0.0)))
+        if game_id == "neon_ops" and ads_amount > 0.0:
+            # ADS wins over speed FOV. Smooth interpolation is handled by the
+            # shared FOV smoothing below, so aiming never snaps the lens.
+            boost *= 1.0 - ads_amount * 0.85
+            base_fov -= 13.0 * ads_amount
 
         if getattr(mode, "paused", False) or getattr(mode, "game_over", False):
             boost = 0.0
