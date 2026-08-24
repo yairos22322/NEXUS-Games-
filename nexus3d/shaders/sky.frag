@@ -7,6 +7,8 @@ uniform vec4 u_sun_color;
 uniform vec4 u_sun_dir;
 uniform float u_star_strength;
 uniform float u_cloud_strength;
+uniform float u_cloud_speed;
+uniform float u_haze_strength;
 uniform float u_time;
 
 in vec3 v_local;
@@ -29,30 +31,69 @@ float valueNoise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+float fbm(vec2 p) {
+    float total = 0.0;
+    float amplitude = 0.52;
+    mat2 rot = mat2(0.82, -0.57, 0.57, 0.82);
+    for (int i = 0; i < 5; ++i) {
+        total += valueNoise(p) * amplitude;
+        p = rot * p * 2.03 + vec2(3.1, -1.7);
+        amplitude *= 0.5;
+    }
+    return total;
+}
+
 void main() {
     vec3 dir = normalize(v_local);
     float vertical = clamp(dir.z * 0.5 + 0.5, 0.0, 1.0);
-    float horizonBand = smoothstep(0.0, 0.52, vertical);
-    vec3 lowColor = mix(u_bottom_color.rgb, u_horizon_color.rgb, horizonBand);
-    vec3 color = mix(lowColor, u_top_color.rgb, smoothstep(0.42, 1.0, vertical));
+
+    // Atmospheric base gradient with a denser horizon scattering band.
+    float horizonMix = smoothstep(0.02, 0.58, vertical);
+    vec3 lowColor = mix(u_bottom_color.rgb, u_horizon_color.rgb, horizonMix);
+    vec3 color = mix(lowColor, u_top_color.rgb, smoothstep(0.39, 1.0, vertical));
+
+    float horizonDistance = 1.0 - abs(dir.z);
+    float haze = pow(max(horizonDistance, 0.0), 4.5) * u_haze_strength;
+    color = mix(color, u_horizon_color.rgb * 1.18, clamp(haze, 0.0, 0.65));
 
     vec3 sunDir = normalize(u_sun_dir.xyz);
     float sunDot = max(dot(dir, sunDir), 0.0);
-    float sunCore = pow(sunDot, 850.0);
-    float sunHalo = pow(sunDot, 24.0) * 0.35;
-    color += u_sun_color.rgb * (sunCore * 5.0 + sunHalo);
+    float sunCore = pow(sunDot, 1200.0);
+    float sunInner = pow(sunDot, 150.0) * 0.70;
+    float sunHalo = pow(sunDot, 18.0) * 0.28;
+    float forwardScatter = pow(sunDot, 5.0) * haze * 0.55;
+    color += u_sun_color.rgb * (sunCore * 6.5 + sunInner + sunHalo + forwardScatter);
 
-    vec2 cloudUv = dir.xy * 3.6 + vec2(u_time * 0.0025, -u_time * 0.0018);
-    float cloud = valueNoise(cloudUv * 2.0) * 0.58 + valueNoise(cloudUv * 4.2) * 0.28 + valueNoise(cloudUv * 8.8) * 0.14;
-    cloud = smoothstep(0.48, 0.78, cloud) * u_cloud_strength * smoothstep(0.20, 0.68, vertical);
-    color = mix(color, color * 1.45 + vec3(0.03, 0.04, 0.055), cloud * 0.35);
+    // Two cloud layers moving at slightly different speeds create parallax.
+    float t = u_time * 0.0040 * u_cloud_speed;
+    vec2 projected = dir.xy / max(0.16, 0.40 + dir.z * 0.72);
+    vec2 uvA = projected * 1.75 + vec2(t, -t * 0.58);
+    vec2 uvB = projected * 3.05 + vec2(-t * 0.42, t * 0.25);
+    float cloudA = fbm(uvA);
+    float cloudB = fbm(uvB + cloudA * 0.55);
+    float cloudShape = cloudA * 0.63 + cloudB * 0.37;
+    float cloud = smoothstep(0.49, 0.72, cloudShape);
+    cloud *= u_cloud_strength * smoothstep(0.18, 0.64, vertical);
 
-    vec2 starCell = floor((dir.xy / max(0.08, abs(dir.z) + 0.28)) * 420.0);
+    float cloudLight = 0.58 + pow(sunDot, 3.0) * 1.20;
+    vec3 cloudColor = mix(color * 0.72, vec3(0.95, 0.98, 1.04) * cloudLight, 0.55);
+    color = mix(color, cloudColor, cloud * 0.53);
+
+    // Thin silver lining around sun-facing cloud edges.
+    float edgeNoise = abs(cloudA - cloudB);
+    float silver = smoothstep(0.16, 0.02, edgeNoise) * cloud * pow(sunDot, 7.0);
+    color += u_sun_color.rgb * silver * 0.42;
+
+    vec2 starProjection = dir.xy / max(0.10, abs(dir.z) + 0.26);
+    vec2 starCell = floor(starProjection * 460.0);
     float starRnd = hash21(starCell);
-    float star = step(0.9968, starRnd) * u_star_strength * smoothstep(0.48, 0.82, vertical);
-    float twinkle = 0.72 + 0.28 * sin(u_time * (1.6 + starRnd * 2.0) + starRnd * 47.0);
+    float star = step(0.9970, starRnd) * u_star_strength * smoothstep(0.47, 0.82, vertical);
+    star *= 1.0 - cloud * 0.82;
+    float twinkle = 0.70 + 0.30 * sin(u_time * (1.35 + starRnd * 2.4) + starRnd * 53.0);
     color += vec3(star * twinkle);
 
-    float vignette = 0.96 + 0.04 * vertical;
-    p3d_FragColor = vec4(color * vignette, 1.0);
+    // Slight filmic shoulder keeps very bright sun pixels from looking flat.
+    color = color / (vec3(1.0) + color * 0.14);
+    float zenithVignette = 0.955 + 0.045 * vertical;
+    p3d_FragColor = vec4(color * zenithVignette, 1.0);
 }
