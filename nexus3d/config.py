@@ -48,10 +48,10 @@ GAMES: List[GameMeta] = [
         subtitle="TACTICAL ARENA",
         genre="3D FPS",
         description=(
-            "First-person arena combat with hitscan weapons, reloads, enemy squads, "
+            "First-person arena combat with hitscan weapons, ADS, recoil, tactical enemy roles, "
             "wave escalation, armor, pickups, sprint and dash."
         ),
-        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
+        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
         secondary=BLUE,
         badge="01",
@@ -62,8 +62,8 @@ GAMES: List[GameMeta] = [
         subtitle="MIDNIGHT CIRCUIT",
         genre="3D DRIVING",
         description=(
-            "High-speed third-person traffic run with nitro, close-call combos, "
-            "lane dodging, destructible road props and escalating traffic density."
+            "High-speed third-person traffic run with nitro, handbrake drifting, intelligent traffic, "
+            "close-call combos, overtakes and escalating road pressure."
         ),
         controls=["A/D STEER", "W ACCELERATE", "S BRAKE", "SHIFT NITRO", "SPACE HANDBRAKE"],
         accent=MAGENTA,
@@ -76,7 +76,7 @@ GAMES: List[GameMeta] = [
         subtitle="LAST DISTRICT",
         genre="3D SURVIVAL",
         description=(
-            "Over-the-shoulder survival shooter with swarms, elite infected, "
+            "Over-the-shoulder survival shooter with surrounding horde behaviour, elite infected, "
             "medkits, armor drops, shotgun bursts and increasingly brutal nights."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
@@ -90,7 +90,7 @@ GAMES: List[GameMeta] = [
         subtitle="VOID FRONT",
         genre="3D SPACE COMBAT",
         description=(
-            "Arcade space combat with lasers, missiles, shields, boost, enemy formations, "
+            "Arcade space combat with lasers, missiles, regenerating shields, evasive formations, "
             "capital ships and boss encounters in a procedural star field."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
@@ -104,10 +104,10 @@ GAMES: List[GameMeta] = [
         subtitle="SKYLINE BREACH",
         genre="3D PARKOUR",
         description=(
-            "Third-person endless rooftop run with jumps, slides, air dashes, "
-            "laser gates, drones, moving platforms and score multipliers."
+            "Third-person rooftop run with buffered jumps, vaulting, wall runs, slides, air dashes, "
+            "laser gates, drones and score multipliers."
         ),
-        controls=["A/D STRAFE", "SPACE JUMP", "SHIFT DASH", "CTRL SLIDE", "W SPEED PUSH"],
+        controls=["A/D STRAFE", "SPACE JUMP / WALL JUMP", "SHIFT DASH", "CTRL SLIDE", "W SPEED PUSH"],
         accent=ORANGE,
         secondary=YELLOW,
         badge="05",
@@ -142,4 +142,9 @@ DEFAULT_SETTINGS = {
     "cinematic_sky_motion": True,
     "water_reflections": True,
     "lightning_world_flash": True,
+    "dynamic_fov": True,
+    "adaptive_difficulty": True,
+    "advanced_ai": True,
+    "motion_fx": True,
+    "procedural_rig_detail": True,
 }
