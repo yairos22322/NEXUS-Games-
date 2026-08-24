@@ -12,6 +12,7 @@ from .difficulty import AdaptiveDifficultyDirector
 from .environment_gameplay import EnvironmentGameplayDirector
 from .navigation import NavigationDirector
 from .parkour import ParkourDirector
+from .perks import PerkDirector
 from .projectile_safety import SweptProjectileSafety
 from .space_tactics import SpaceCombatDirector
 from .spatial import SpatialHash2D
@@ -25,15 +26,7 @@ from ..graphics.world_lighting import WorldLightingDirector
 
 
 class GameplayDirector:
-    """Cross-mode gameplay, camera, AI and world-simulation director.
-
-    The five modes remain authoritative for their core rules. This layer adds
-    systems that are expensive or repetitive to implement five times: tactical
-    perception, A* navigation, contracts, weather/gameplay coupling, dynamic
-    lighting, destructible combat props, weapon loadouts, swept projectile
-    safety, traffic/space/parkour logic, spatial broadphase, rig detail, surface
-    feedback and cinematic motion FX.
-    """
+    """Cross-mode gameplay, camera, AI and world-simulation director."""
 
     SPEED_REFERENCE = {
         "neon_ops": 18.0,
@@ -42,7 +35,6 @@ class GameplayDirector:
         "orbital_wars": 95.0,
         "cyber_runner": 34.0,
     }
-
     FOV_BOOST = {
         "neon_ops": 7.0,
         "street_rush": 12.0,
@@ -64,6 +56,7 @@ class GameplayDirector:
         self.difficulty = AdaptiveDifficultyDirector()
         self.environment_gameplay = EnvironmentGameplayDirector(app)
         self.contracts = ContractDirector(app)
+        self.perks = PerkDirector(app)
         self.destruction = DestructibleWorldDirector()
         self.world_lighting = WorldLightingDirector(app)
         self.motion_fx = MotionFX(app)
@@ -71,7 +64,6 @@ class GameplayDirector:
         self.surface_feedback = SurfaceFeedbackDirector(app)
         self._spatial = SpatialHash2D(cell_size=3.2)
         self._last_camera_pos: Optional[Vec3] = None
-        self._fov_velocity = 0.0
         self._current_fov = float(app.save.setting("fov", 82.0))
         self._crowd_accumulator = 0.0
         self._camera_lean = 0.0
@@ -79,7 +71,6 @@ class GameplayDirector:
 
     def reset(self) -> None:
         self._last_camera_pos = None
-        self._fov_velocity = 0.0
         self._current_fov = float(self.app.save.setting("fov", 82.0))
         self._crowd_accumulator = 0.0
         self._camera_lean = 0.0
@@ -96,6 +87,7 @@ class GameplayDirector:
         self.difficulty.reset()
         self.environment_gameplay.reset()
         self.contracts.reset()
+        self.perks.reset()
         self.destruction.reset()
         self.world_lighting.reset()
         self.motion_fx.reset()
@@ -111,8 +103,16 @@ class GameplayDirector:
             self._last_camera_pos = None
             return
 
-        # Destruction attaches its runtime colliders first so the navigation grid
-        # sees the same combat geometry as the player on its first build.
+        # Perk choices intentionally remain interactive while the base mode is
+        # paused. Every other shared simulation system freezes with the game.
+        if bool(self.app.save.setting("run_perks", True)):
+            self.perks.update(dt, mode)
+        if getattr(mode, "paused", False) or getattr(mode, "game_over", False):
+            self.combat_feel.update(dt, mode)
+            self._update_dynamic_fov(dt, mode)
+            self.motion_fx.update(dt, None)
+            return
+
         if bool(self.app.save.setting("destructible_props", True)):
             self.destruction.update(dt, mode)
         nav_revision = int(getattr(mode, "nav_revision", 0))
@@ -155,8 +155,6 @@ class GameplayDirector:
         else:
             self.motion_fx.update(dt, None)
 
-        # Crowd broadphase runs at 30 Hz. Spatial hashing avoids the old global
-        # every-pair scan when zombie waves become dense.
         self._crowd_accumulator += dt
         if advanced_ai and self._crowd_accumulator >= 1.0 / 30.0:
             step = min(0.08, self._crowd_accumulator)
@@ -165,18 +163,14 @@ class GameplayDirector:
             self._separate_actor_group(mode, getattr(mode, "zombies", None), step)
 
     def destroy(self) -> None:
-        try:
-            self.contracts.reset()
-        except Exception:
-            pass
-        try:
-            self.surface_feedback.destroy()
-        except Exception:
-            pass
-        try:
-            self.motion_fx.destroy()
-        except Exception:
-            pass
+        for system in (self.contracts, self.perks, self.surface_feedback, self.motion_fx):
+            try:
+                if hasattr(system, "destroy"):
+                    system.destroy()
+                else:
+                    system.reset()
+            except Exception:
+                pass
 
     def _restore_fov(self, dt: float) -> None:
         target = float(self.app.save.setting("fov", 82.0))
@@ -190,19 +184,16 @@ class GameplayDirector:
         if not bool(self.app.save.setting("dynamic_fov", True)):
             self._restore_fov(dt)
             return
-
         base_fov = float(self.app.save.setting("fov", 82.0))
         game_id = str(getattr(mode, "game_id", ""))
         reference = self.SPEED_REFERENCE.get(game_id, 35.0)
         max_boost = self.FOV_BOOST.get(game_id, 6.0)
-
         camera_pos = self.app.camera.getPos(self.app.render)
         if self._last_camera_pos is None:
             camera_speed = 0.0
         else:
             camera_speed = (camera_pos - self._last_camera_pos).length() / max(0.0001, dt)
         self._last_camera_pos = Vec3(camera_pos)
-
         explicit_speed = getattr(mode, "speed", None)
         if isinstance(explicit_speed, (int, float)):
             camera_speed = max(camera_speed, abs(float(explicit_speed)))
@@ -211,26 +202,20 @@ class GameplayDirector:
                 camera_speed = max(camera_speed, Vec3(mode.velocity).length())
             except Exception:
                 pass
-
         speed_ratio = max(0.0, min(1.45, camera_speed / max(1.0, reference)))
-        eased = 1.0 - math.exp(-speed_ratio * 1.75)
-        boost = max_boost * eased
-
+        boost = max_boost * (1.0 - math.exp(-speed_ratio * 1.75))
         if bool(getattr(mode, "nitro_active", False)):
             boost += 2.8
         if float(getattr(mode, "dash_timer", 0.0) or 0.0) > 0.0:
             boost += 3.5
         if bool(getattr(mode, "boosting", False)):
             boost += 2.5
-
         ads_amount = max(0.0, min(1.0, float(getattr(mode, "ads_amount", 0.0) or 0.0)))
         if game_id == "neon_ops" and ads_amount > 0.0:
             boost *= 1.0 - ads_amount * 0.85
             base_fov -= 13.0 * ads_amount
-
         if getattr(mode, "paused", False) or getattr(mode, "game_over", False):
             boost = 0.0
-
         target = max(55.0, min(112.0, base_fov + boost))
         self._current_fov = self._smooth(self._current_fov, target, 8.5, dt)
         try:
@@ -243,22 +228,16 @@ class GameplayDirector:
         target = 0.0
         if game_id == "street_rush":
             target = float(getattr(mode, "steer", 0.0)) * -1.8
-        elif game_id == "neon_ops":
+        elif game_id in ("neon_ops", "cyber_runner"):
             key = getattr(mode, "key", None)
             if key is not None:
-                target = ((1 if key["d"] else 0) - (1 if key["a"] else 0)) * -0.75
-        elif game_id == "cyber_runner":
-            key = getattr(mode, "key", None)
-            if key is not None:
-                target = ((1 if key["d"] else 0) - (1 if key["a"] else 0)) * -1.1
+                scale = -0.75 if game_id == "neon_ops" else -1.1
+                target = ((1 if key["d"] else 0) - (1 if key["a"] else 0)) * scale
         elif game_id == "orbital_wars" and hasattr(mode, "velocity"):
             try:
                 target = max(-2.2, min(2.2, -float(mode.velocity.x) * 0.15))
             except Exception:
                 target = 0.0
-
-        if getattr(mode, "paused", False) or getattr(mode, "game_over", False):
-            target = 0.0
         self._camera_lean = self._smooth(self._camera_lean, target, 7.0, dt)
         try:
             hpr = self.app.camera.getHpr()
@@ -270,58 +249,37 @@ class GameplayDirector:
     def _separate_actor_group(self, mode, group: Optional[Iterable], dt: float) -> None:
         if not group:
             return
-        actors = [
-            actor
-            for actor in group
-            if getattr(actor, "alive", True)
-            and hasattr(actor, "rig")
-            and not actor.rig.root.isEmpty()
-        ]
+        actors = [a for a in group if getattr(a,"alive",True) and hasattr(a,"rig") and not a.rig.root.isEmpty()]
         if len(actors) < 2:
             return
-
-        self._spatial.rebuild(
-            (
-                actor,
-                actor.rig.get_pos(),
-                float(getattr(actor, "radius", 0.48)),
-            )
-            for actor in actors[:120]
-        )
-        pushes: dict[int, Vec3] = {id(actor): Vec3(0) for actor in actors[:120]}
-
+        active = actors[:120]
+        self._spatial.rebuild((a, a.rig.get_pos(), float(getattr(a,"radius",0.48))) for a in active)
+        pushes: dict[int, Vec3] = {id(a): Vec3(0) for a in active}
         for entry_a, entry_b in self._spatial.iter_unique_pairs(extra_radius=0.14):
-            actor_a = entry_a.obj
-            actor_b = entry_b.obj
-            delta = Vec3(entry_a.pos.x - entry_b.pos.x, entry_a.pos.y - entry_b.pos.y, 0.0)
+            actor_a, actor_b = entry_a.obj, entry_b.obj
+            delta = Vec3(entry_a.pos.x-entry_b.pos.x, entry_a.pos.y-entry_b.pos.y, 0.0)
             dist_sq = delta.lengthSquared()
             desired = entry_a.radius + entry_b.radius + 0.14
             if dist_sq >= desired * desired:
                 continue
             if dist_sq < 0.00001:
-                angle = (id(actor_a) * 0.0000017 + id(actor_b) * 0.0000009) % math.tau
+                angle = (id(actor_a)*0.0000017 + id(actor_b)*0.0000009) % math.tau
                 direction = Vec3(math.cos(angle), math.sin(angle), 0.0)
                 distance = 0.001
             else:
                 distance = math.sqrt(dist_sq)
                 direction = delta / distance
-            penetration = desired - distance
-            impulse = direction * min(0.42, penetration * 0.52)
+            impulse = direction * min(0.42, (desired-distance) * 0.52)
             pushes[id(actor_a)] += impulse
             pushes[id(actor_b)] -= impulse
-
-        for actor in actors[:120]:
+        for actor in active:
             push = pushes.get(id(actor), Vec3(0))
             if push.lengthSquared() < 0.000001:
                 continue
             pos = actor.rig.get_pos()
             delta = push * min(1.0, dt * 30.0)
             if hasattr(mode, "move_with_collisions"):
-                half = Vec3(
-                    float(getattr(actor, "radius", 0.48)) * 0.75,
-                    float(getattr(actor, "radius", 0.48)) * 0.75,
-                    1.0,
-                )
+                half = Vec3(float(getattr(actor,"radius",0.48))*0.75, float(getattr(actor,"radius",0.48))*0.75, 1.0)
                 try:
                     pos = mode.move_with_collisions(pos, delta, half)
                 except Exception:
@@ -334,5 +292,4 @@ class GameplayDirector:
     def _smooth(current: float, target: float, sharpness: float, dt: float) -> float:
         if sharpness <= 0.0:
             return target
-        t = 1.0 - math.exp(-sharpness * max(0.0, dt))
-        return current + (target - current) * t
+        return current + (target-current) * (1.0-math.exp(-sharpness*max(0.0,dt)))
