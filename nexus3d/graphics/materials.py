@@ -13,11 +13,9 @@ Color = Tuple[float, float, float, float]
 class MaterialLibrary:
     """Applies PBR-friendly Panda3D materials to procedural geometry.
 
-    The original build used only vertex colours.  That makes scenes readable,
+    The original build used only vertex colours. That makes scenes readable,
     but it gives the renderer almost no information about whether a surface is
     metal, paint, wet asphalt, fabric, glass, concrete or an emissive sign.
-    This library adds that missing surface description while still keeping the
-    project asset-free and fully generated from Python.
     """
 
     def __init__(self) -> None:
@@ -53,8 +51,6 @@ class MaterialLibrary:
             return cached
 
         material = Material(f"mat-{category}-{len(self._cache)}")
-        # Geometry in NEXUS carries its tint in vertex colours.  Keep the
-        # material base colour neutral so PBR does not multiply that tint twice.
         material.setBaseColor(Vec4(1.0, 1.0, 1.0, color[3]))
         material.setMetallic(max(0.0, min(1.0, preset.metallic)))
         material.setRoughness(max(0.02, min(1.0, preset.roughness)))
@@ -89,7 +85,7 @@ class MaterialLibrary:
 
     def apply_by_name(self, node: NodePath, name: str, color: Optional[Color] = None) -> NodePath:
         lowered = name.lower()
-        if any(word in lowered for word in ("neon", "glow", "light", "muzzle", "laser", "window", "accent")):
+        if "emissive" in lowered or any(word in lowered for word in ("neon", "glow", "light", "muzzle", "laser", "window", "accent")):
             category = "emissive"
         elif any(word in lowered for word in ("weapon", "rifle", "barrel", "gun", "blade")):
             category = "weapon_metal"
