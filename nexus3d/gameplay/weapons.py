@@ -32,42 +32,9 @@ class WeaponLoadoutDirector:
     """Runtime three-weapon loadout layered over the existing FPS rules."""
 
     SPECS = (
-        WeaponSpec(
-            weapon_id="ar",
-            name="VX-7 ASSAULT",
-            damage=29.0,
-            fire_interval=0.095,
-            spread=0.014,
-            magazine=30,
-            reserve=150,
-            reload_time=1.52,
-            visual_scale=(1.0, 1.0, 1.0),
-            accent=(0.05, 0.90, 1.0, 1.0),
-        ),
-        WeaponSpec(
-            weapon_id="smg",
-            name="KITE-9 SMG",
-            damage=18.5,
-            fire_interval=0.060,
-            spread=0.024,
-            magazine=42,
-            reserve=210,
-            reload_time=1.28,
-            visual_scale=(0.94, 0.82, 0.92),
-            accent=(0.60, 0.24, 1.0, 1.0),
-        ),
-        WeaponSpec(
-            weapon_id="dmr",
-            name="SENTINEL DMR",
-            damage=52.0,
-            fire_interval=0.235,
-            spread=0.006,
-            magazine=12,
-            reserve=72,
-            reload_time=1.78,
-            visual_scale=(1.02, 1.22, 0.96),
-            accent=(1.0, 0.42, 0.08, 1.0),
-        ),
+        WeaponSpec("ar", "VX-7 ASSAULT", 29.0, 0.095, 0.014, 30, 150, 1.52, (1.0,1.0,1.0), (0.05,0.90,1.0,1.0)),
+        WeaponSpec("smg", "KITE-9 SMG", 18.5, 0.060, 0.024, 42, 210, 1.28, (0.94,0.82,0.92), (0.60,0.24,1.0,1.0)),
+        WeaponSpec("dmr", "SENTINEL DMR", 52.0, 0.235, 0.006, 12, 72, 1.78, (1.02,1.22,0.96), (1.0,0.42,0.08,1.0)),
     )
 
     def __init__(self, app) -> None:
@@ -98,12 +65,12 @@ class WeaponLoadoutDirector:
         if id(mode) != self.mode_identity:
             self._attach(mode)
         self.switch_cooldown = max(0.0, self.switch_cooldown - max(0.0, dt))
-
         for slot in (1, 2, 3):
             down = bool(mode.key[str(slot)])
             if down and not self.key_was_down[slot] and self.switch_cooldown <= 0.0:
                 self._switch(mode, slot)
             self.key_was_down[slot] = down
+        self._refresh_active_stats(mode)
         self._update_label(mode)
 
     def _attach(self, mode) -> None:
@@ -118,20 +85,19 @@ class WeaponLoadoutDirector:
         damage_bonus = min(0.18, max(0, level - 1) * 0.006)
         for slot, spec in enumerate(self.SPECS, start=1):
             scaled_spec = WeaponSpec(
-                weapon_id=spec.weapon_id,
-                name=spec.name,
-                damage=spec.damage * (1.0 + damage_bonus),
-                fire_interval=spec.fire_interval,
-                spread=spec.spread,
-                magazine=spec.magazine,
-                reserve=spec.reserve,
-                reload_time=spec.reload_time,
-                visual_scale=spec.visual_scale,
-                accent=spec.accent,
+                spec.weapon_id,
+                spec.name,
+                spec.damage * (1.0 + damage_bonus),
+                spec.fire_interval,
+                spec.spread,
+                spec.magazine,
+                spec.reserve,
+                spec.reload_time,
+                spec.visual_scale,
+                spec.accent,
             )
             self.weapons[slot] = WeaponRuntime(scaled_spec, scaled_spec.magazine, scaled_spec.reserve)
 
-        # Preserve the base-mode starting ammo in the assault slot when possible.
         self.weapons[1].ammo = int(getattr(mode, "ammo", self.weapons[1].ammo))
         self.weapons[1].reserve = int(getattr(mode, "reserve_ammo", self.weapons[1].reserve))
         self.active_slot = 1
@@ -154,7 +120,6 @@ class WeaponLoadoutDirector:
         current = self.weapons[self.active_slot]
         current.ammo = int(getattr(mode, "ammo", current.ammo))
         current.reserve = int(getattr(mode, "reserve_ammo", current.reserve))
-
         self.active_slot = slot
         target = self.weapons[slot]
         self._apply(mode, target)
@@ -163,25 +128,24 @@ class WeaponLoadoutDirector:
             mode.reloading = False
             mode.reload_timer = 0.0
             mode.fire_timer = max(float(getattr(mode, "fire_timer", 0.0)), 0.16)
-            mode.spawn_floating_text(
-                target.spec.name,
-                (0.0, -0.12),
-                target.spec.accent,
-                0.030,
-                0.55,
-            )
+            mode.spawn_floating_text(target.spec.name, (0.0,-0.12), target.spec.accent, 0.030, 0.55)
             self.app.audio.play("reload", self.app.sfx_volume() * 0.22, 1.45)
         except Exception:
             pass
 
+    def _refresh_active_stats(self, mode) -> None:
+        runtime = self.weapons.get(self.active_slot)
+        if runtime is None:
+            return
+        # Ammo is authoritative in the mode while a weapon is active.
+        runtime.ammo = int(getattr(mode, "ammo", runtime.ammo))
+        runtime.reserve = int(getattr(mode, "reserve_ammo", runtime.reserve))
+        self._apply_stats_only(mode, runtime.spec)
+
     def _apply(self, mode, runtime: WeaponRuntime) -> None:
         spec = runtime.spec
         mode.weapon_name = spec.name
-        mode.weapon_damage = spec.damage
-        mode.fire_interval = spec.fire_interval
-        mode.weapon_spread = spec.spread
-        mode.magazine_size = spec.magazine
-        mode.reload_time = spec.reload_time
+        self._apply_stats_only(mode, spec)
         mode.ammo = runtime.ammo
         mode.reserve_ammo = runtime.reserve
         try:
@@ -196,6 +160,21 @@ class WeaponLoadoutDirector:
                 mode.weapon_label["text_fg"] = spec.accent
             except Exception:
                 pass
+
+    @staticmethod
+    def _apply_stats_only(mode, spec: WeaponSpec) -> None:
+        damage_multiplier = max(0.25, float(getattr(mode, "weapon_damage_multiplier", 1.0)))
+        reload_multiplier = max(0.45, float(getattr(mode, "weapon_reload_multiplier", 1.0)))
+        mag_bonus = max(0, int(getattr(mode, "weapon_mag_bonus", 0)))
+        mode.weapon_damage = spec.damage * damage_multiplier
+        mode.fire_interval = spec.fire_interval
+        # CombatFeelDirector turns this native value into the final ADS/recoil spread.
+        if str(getattr(mode, "weapon_name", "")) == spec.name and not bool(getattr(mode, "ads_active", False)):
+            current = float(getattr(mode, "weapon_spread", spec.spread))
+            if abs(current - spec.spread) < spec.spread * 3.0:
+                mode.weapon_spread = spec.spread
+        mode.magazine_size = spec.magazine + mag_bonus
+        mode.reload_time = spec.reload_time * reload_multiplier
 
     def _update_label(self, mode) -> None:
         if self.label is None:
