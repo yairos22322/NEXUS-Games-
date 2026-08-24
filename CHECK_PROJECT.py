@@ -16,6 +16,7 @@ REQUIRED_V3 = [
     "nexus3d/gameplay/destruction.py",
     "nexus3d/gameplay/environment_gameplay.py",
     "nexus3d/gameplay/projectile_safety.py",
+    "nexus3d/gameplay/hit_reactions.py",
     "nexus3d/gameplay/weapons.py",
     "nexus3d/gameplay/perks.py",
     "nexus3d/graphics/surface_feedback.py",
@@ -32,6 +33,7 @@ REQUIRED_SETTING_TOKENS = [
     '"destructible_props": True',
     '"weapon_loadout": True',
     '"swept_projectiles": True',
+    '"hit_reactions": True',
     '"runtime_lod": True',
     '"player_dynamic_lights": True',
 ]
