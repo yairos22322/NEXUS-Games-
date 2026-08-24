@@ -49,7 +49,7 @@ GAMES: List[GameMeta] = [
         genre="3D FPS",
         description=(
             "First-person combat with ADS, recoil, three-weapon loadout, A* tactical pathfinding, "
-            "destructible cover, weather-aware perception, run upgrades, contracts and wave escalation."
+            "destructible cover, directional hit reactions, weather-aware perception, upgrades and contracts."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "1/2/3 WEAPONS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
@@ -76,7 +76,7 @@ GAMES: List[GameMeta] = [
         subtitle="LAST DISTRICT",
         genre="3D SURVIVAL",
         description=(
-            "Over-the-shoulder survival with surround behaviour, A* obstacle routing, destructible props, "
+            "Over-the-shoulder survival with surround behaviour, A* routing, destructible props, knockback, "
             "weather-aware horde timing, run upgrades, contracts, elite infected and shotgun combat."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
@@ -90,7 +90,7 @@ GAMES: List[GameMeta] = [
         subtitle="VOID FRONT",
         genre="3D SPACE COMBAT",
         description=(
-            "Space combat with swept projectiles, lasers, missiles, run upgrades, regenerating shields, "
+            "Space combat with swept projectiles, hit impulses, lasers, missiles, run upgrades, shields, "
             "evasive formations, capital ships, contracts and boss encounters."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
@@ -157,4 +157,5 @@ DEFAULT_SETTINGS = {
     "surface_feedback": True,
     "weapon_loadout": True,
     "swept_projectiles": True,
+    "hit_reactions": True,
 }
