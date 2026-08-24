@@ -147,6 +147,8 @@ DEFAULT_SETTINGS = {
     "advanced_ai": True,
     "motion_fx": True,
     "procedural_rig_detail": True,
+    "runtime_lod": True,
+    "player_dynamic_lights": True,
     "weather_gameplay": True,
     "dynamic_world_lighting": True,
     "contracts": True,
