@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import random
 from typing import List
 
-from panda3d.core import NodePath, Vec3
+from panda3d.core import Vec3
 
 from .atmosphere import DistantCity, LensArtifacts, SkyDome, WaterSurface
 from .quality import GraphicsQuality
@@ -27,6 +26,9 @@ class CinematicEnvironment:
         self.weather = None
         self.artifacts = None
         self.water: List[WaterSurface] = []
+        self.runtime_scale = 1.0
+        self.lightning_flash = 0.0
+        self.sky_luminance = 0.5
         self._build()
 
     def _build(self) -> None:
@@ -77,9 +79,7 @@ class CinematicEnvironment:
                 (Vec3(30, -25, 0.025), (11, 4)),
             ]
         elif self.profile_id == "zombie_siege":
-            specs = [
-                (Vec3(-22, 20, 0.02), (9, 5)),
-            ]
+            specs = [(Vec3(-22, 20, 0.02), (9, 5))]
         elif self.profile_id == "cyber_runner":
             specs = [
                 (Vec3(-35, 60, -1.0), (20, 50)),
@@ -88,18 +88,31 @@ class CinematicEnvironment:
         else:
             specs = []
         for index, (position, size) in enumerate(specs):
-            self.water.append(
-                WaterSurface(self.root, position, size, c, q, self.seed + index * 47)
-            )
+            self.water.append(WaterSurface(self.root, position, size, c, q, self.seed + index * 47))
+
+    def set_runtime_scale(self, scale: float) -> None:
+        self.runtime_scale = max(0.35, min(1.0, float(scale)))
+        if self.city is not None:
+            self.city.set_runtime_scale(self.runtime_scale)
+        if self.artifacts is not None:
+            self.artifacts.set_runtime_scale(self.runtime_scale)
+        if self.weather is not None:
+            # Weather is the first visual effect to scale under pressure.
+            weather_scale = max(0.28, self.runtime_scale ** 1.35)
+            self.weather.set_runtime_scale(weather_scale)
 
     def update(self, dt: float) -> None:
         self.sky.update(dt)
+        self.sky_luminance = float(getattr(self.sky, "luminance", 0.5))
         if self.city is not None:
             self.city.update(dt)
         if self.artifacts is not None:
             self.artifacts.update(dt)
         if self.weather is not None:
             self.weather.update(dt)
+            self.lightning_flash = float(getattr(self.weather, "flash", 0.0))
+        else:
+            self.lightning_flash = 0.0
         camera_pos = self.app.camera.getPos(self.app.render)
         for surface in self.water:
             surface.update(dt, camera_pos)

@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 Color = Tuple[float, float, float, float]
 
-APP_TITLE = "NEXUS FIVE 3D // ULTRA"
+APP_TITLE = "NEXUS FIVE 3D // NEXT GEN"
 WINDOW_WIDTH = 1600
 WINDOW_HEIGHT = 900
 TARGET_FPS = 144
@@ -136,4 +136,10 @@ DEFAULT_SETTINGS = {
     "graphics_quality": "ULTRA",
     "cinematic_postfx": True,
     "dynamic_weather": True,
+    "adaptive_quality": True,
+    "target_fps": 72,
+    "dynamic_exposure": True,
+    "cinematic_sky_motion": True,
+    "water_reflections": True,
+    "lightning_world_flash": True,
 }

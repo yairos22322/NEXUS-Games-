@@ -6,10 +6,7 @@ from pathlib import Path
 from typing import List
 
 from panda3d.core import (
-    BillboardEffect,
-    CardMaker,
     CullFaceAttrib,
-    DepthTestAttrib,
     NodePath,
     Shader,
     TransparencyAttrib,
@@ -26,7 +23,7 @@ class SkyDome:
     def __init__(self, app, root: NodePath, preset: VisualPreset) -> None:
         self.app = app
         self.root = root.attachNewNode("cinematic-sky-root")
-        self.node = make_uv_sphere("cinematic-sky", 420.0, 48, 24)
+        self.node = make_uv_sphere("cinematic-sky", 520.0, 64, 32)
         self.node.reparentTo(self.root)
         self.node.setTwoSided(True)
         self.node.setDepthWrite(False)
@@ -46,6 +43,8 @@ class SkyDome:
         self.shader = shader
         self.apply_preset(preset)
         self.time = 0.0
+        self.sun_phase = 0.0
+        self.luminance = 0.5
 
     def apply_preset(self, preset: VisualPreset) -> None:
         self.preset = preset
@@ -56,11 +55,36 @@ class SkyDome:
         self.node.setShaderInput("u_sun_dir", Vec4(*preset.sun_direction, 0.0))
         self.node.setShaderInput("u_star_strength", float(preset.star_strength))
         self.node.setShaderInput("u_cloud_strength", float(preset.cloud_strength))
+        self.node.setShaderInput("u_cloud_speed", 1.0)
+        self.node.setShaderInput("u_haze_strength", 0.55)
 
     def update(self, dt: float) -> None:
         self.time += dt
         self.root.setPos(self.app.camera.getPos(self.app.render))
         self.node.setShaderInput("u_time", self.time)
+
+        base = Vec3(*self.preset.sun_direction)
+        if bool(self.app.save.setting("cinematic_sky_motion", True)):
+            self.sun_phase += dt * 0.0065
+            angle = self.sun_phase
+            # Very slow cinematic drift, not a fast fake day/night cycle.
+            rotated = Vec3(
+                base.x * math.cos(angle) - base.y * math.sin(angle),
+                base.x * math.sin(angle) + base.y * math.cos(angle),
+                max(-0.35, min(0.95, base.z + math.sin(angle * 0.63) * 0.12)),
+            )
+            if rotated.lengthSquared() > 0.0001:
+                rotated.normalize()
+            self.node.setShaderInput("u_sun_dir", Vec4(rotated.x, rotated.y, rotated.z, 0.0))
+            self.luminance = max(0.10, min(1.0, 0.52 + rotated.z * 0.36))
+        else:
+            self.luminance = max(0.10, min(1.0, 0.52 + base.z * 0.36))
+
+        # Clouds breathe almost imperceptibly so repeated scenes do not look frozen.
+        cloud_speed = 0.78 + math.sin(self.time * 0.027) * 0.16
+        haze = 0.44 + math.sin(self.time * 0.019 + 1.2) * 0.10
+        self.node.setShaderInput("u_cloud_speed", cloud_speed)
+        self.node.setShaderInput("u_haze_strength", haze)
 
     def destroy(self) -> None:
         if not self.root.isEmpty():
@@ -77,8 +101,8 @@ class WaterSurface:
         quality: int,
         seed: int,
     ) -> None:
-        segments = 8 + quality * 6
-        self.node = make_subdivided_plane("cinematic-water", size[0], size[1], segments, max(4, segments // 2))
+        segments = 10 + quality * 8
+        self.node = make_subdivided_plane("cinematic-water", size[0], size[1], segments, max(6, segments // 2))
         self.node.reparentTo(root)
         self.node.setPos(position)
         self.node.setTransparency(TransparencyAttrib.MAlpha)
@@ -97,6 +121,7 @@ class WaterSurface:
         self.shader = shader
         self.node.setShaderInput("u_water_color", Vec4(*color))
         self.node.setShaderInput("u_seed", float(seed % 1024) / 1024.0)
+        self.node.setShaderInput("u_reflection_strength", 0.85)
         self.time = random.random() * 50.0
 
     def update(self, dt: float, camera_pos: Vec3) -> None:
@@ -110,7 +135,7 @@ class WaterSurface:
 
 
 class DistantCity:
-    """Cheap skyline detail that sits beyond playable collision geometry."""
+    """Procedural skyline with runtime density scaling."""
 
     def __init__(self, root: NodePath, materials, preset: VisualPreset, count: int, seed: int) -> None:
         self.root = root.attachNewNode("distant-city")
@@ -118,17 +143,18 @@ class DistantCity:
         self.preset = preset
         self.rng = random.Random(seed)
         self.nodes: List[NodePath] = []
+        self.runtime_scale = 1.0
         self._build(count)
 
     def _build(self, count: int) -> None:
         for index in range(max(0, count)):
             angle = self.rng.uniform(0.0, math.tau)
-            radius = self.rng.uniform(92.0, 190.0)
+            radius = self.rng.uniform(92.0, 215.0)
             x = math.cos(angle) * radius
             y = math.sin(angle) * radius
             width = self.rng.uniform(5.0, 15.0)
             depth = self.rng.uniform(5.0, 15.0)
-            height = self.rng.uniform(18.0, 72.0)
+            height = self.rng.uniform(18.0, 78.0)
             base = self.preset.architecture_tint
             variation = self.rng.uniform(0.72, 1.15)
             color = (
@@ -159,6 +185,17 @@ class DistantCity:
                 )
                 self.materials.apply(sign, "emissive", f"sign-{index}", accent, 1.8)
 
+    def set_runtime_scale(self, scale: float) -> None:
+        self.runtime_scale = max(0.35, min(1.0, float(scale)))
+        if not self.nodes:
+            return
+        keep = max(8, int(len(self.nodes) * self.runtime_scale))
+        for index, node in enumerate(self.nodes):
+            if index < keep:
+                node.show()
+            else:
+                node.hide()
+
     def update(self, dt: float) -> None:
         return
 
@@ -174,6 +211,7 @@ class LensArtifacts:
         self.root = root.attachNewNode("lens-artifacts")
         rng = random.Random(seed ^ 0xA811CE)
         self.nodes: List[NodePath] = []
+        self.runtime_scale = 1.0
         for index in range(max(0, count)):
             node = make_octahedron(
                 f"light-speck-{index}",
@@ -188,9 +226,18 @@ class LensArtifacts:
             node.setLightOff(10)
             self.nodes.append(node)
 
+    def set_runtime_scale(self, scale: float) -> None:
+        self.runtime_scale = max(0.25, min(1.0, float(scale)))
+        keep = max(2, int(len(self.nodes) * self.runtime_scale)) if self.nodes else 0
+        for index, node in enumerate(self.nodes):
+            if index < keep:
+                node.show()
+            else:
+                node.hide()
+
     def update(self, dt: float) -> None:
         for index, node in enumerate(self.nodes):
-            if not node.isEmpty():
+            if not node.isEmpty() and not node.isHidden():
                 node.setH(node.getH() + dt * (8 + index % 7))
 
     def destroy(self) -> None:

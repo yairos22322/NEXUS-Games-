@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import sys
 from typing import Optional
 
 from direct.showbase.ShowBase import ShowBase
@@ -9,8 +7,9 @@ from panda3d.core import ClockObject, WindowProperties, loadPrcFileData
 
 from .audio import ProceduralAudio
 from .config import APP_TITLE, DIFFICULTIES, TARGET_FPS, WINDOW_HEIGHT, WINDOW_WIDTH
-from .save_system import SaveSystem
+from .gameplay import GameplayDirector
 from .graphics.pipeline import GraphicsDirector
+from .save_system import SaveSystem
 
 loadPrcFileData("", f"window-title {APP_TITLE}")
 loadPrcFileData("", f"win-size {WINDOW_WIDTH} {WINDOW_HEIGHT}")
@@ -21,7 +20,7 @@ loadPrcFileData("", "color-bits 24")
 loadPrcFileData("", "sync-video 1")
 loadPrcFileData("", "framebuffer-multisample 1")
 loadPrcFileData("", "multisamples 4")
-loadPrcFileData("", "texture-anisotropic-degree 8")
+loadPrcFileData("", "texture-anisotropic-degree 16")
 loadPrcFileData("", "audio-library-name p3openal_audio")
 
 
@@ -36,6 +35,7 @@ class NexusApp(ShowBase):
         self.save = SaveSystem()
         self.audio = ProceduralAudio(self)
         self.graphics = GraphicsDirector(self)
+        self.gameplay = GameplayDirector(self)
         self.menu = None
         self.mode = None
         self.accept("f11", self.toggle_fullscreen)
@@ -90,6 +90,7 @@ class NexusApp(ShowBase):
         self.camera.setPos(0, -18, 7.8)
         self.camera.setHpr(0, -7, 0)
         self.camLens.setFov(float(self.save.setting("fov", 82)))
+        self.gameplay.reset()
         self.graphics.set_profile("menu")
         self.menu = NexusMenu(self)
 
@@ -101,6 +102,7 @@ class NexusApp(ShowBase):
             self.mode.destroy()
             self.mode = None
 
+        self.gameplay.reset()
         self.graphics.set_profile(game_id)
         mode_cls = self._mode_class(game_id)
         self.mode = mode_cls(self)
@@ -132,6 +134,7 @@ class NexusApp(ShowBase):
             self.menu.update(dt)
         if self.mode is not None and self.mode.active:
             self.mode.update(dt)
+        self.gameplay.update(dt, self.mode)
         return task.cont
 
     def userExit(self) -> None:
