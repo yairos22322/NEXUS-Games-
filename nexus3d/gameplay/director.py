@@ -11,6 +11,7 @@ from .space_tactics import SpaceCombatDirector
 from .tactical_ai import TacticalAI
 from .vehicle_ai import VehicleDynamicsDirector
 from ..graphics.motion_fx import MotionFX
+from ..graphics.rig_detail import RigDetailDirector
 
 
 class GameplayDirector:
@@ -19,7 +20,8 @@ class GameplayDirector:
     Each mini-game remains responsible for its core rules. The shared director
     layers higher-level systems around those rules: tactical perception,
     adaptive encounter pressure, traffic decisions, space formations, parkour
-    assists, crowd separation, dynamic field of view and cinematic motion FX.
+    assists, crowd separation, dynamic field of view, runtime rig detailing and
+    cinematic motion FX.
     """
 
     SPEED_REFERENCE = {
@@ -46,6 +48,7 @@ class GameplayDirector:
         self.parkour = ParkourDirector()
         self.difficulty = AdaptiveDifficultyDirector()
         self.motion_fx = MotionFX(app)
+        self.rig_detail = RigDetailDirector(app)
         self._last_camera_pos: Optional[Vec3] = None
         self._fov_velocity = 0.0
         self._current_fov = float(app.save.setting("fov", 82.0))
@@ -64,6 +67,7 @@ class GameplayDirector:
         self.parkour.reset()
         self.difficulty.reset()
         self.motion_fx.reset()
+        self.rig_detail.reset()
 
     def update(self, dt: float, mode) -> None:
         if dt <= 0.0:
@@ -75,13 +79,14 @@ class GameplayDirector:
             return
 
         # The specialised systems intentionally run after each mode's own
-        # update. They can polish resulting motion and prepare AI state for the
+        # update. They polish resulting motion and prepare AI state for the
         # following frame without stealing ownership of core game rules.
         self.tactical.update(dt, mode)
         self.vehicles.update(dt, mode)
         self.space.update(dt, mode)
         self.parkour.update(dt, mode)
         self.difficulty.update(dt, mode)
+        self.rig_detail.update(dt, mode)
 
         self._update_dynamic_fov(dt, mode)
         self._update_camera_lean(dt, mode)
@@ -180,8 +185,6 @@ class GameplayDirector:
         self._camera_lean = self._smooth(self._camera_lean, target, 7.0, dt)
         try:
             hpr = self.app.camera.getHpr()
-            # Mode camera logic runs before the director, so this is only a
-            # small additive finish and does not accumulate frame to frame.
             desired_r = max(-8.0, min(8.0, hpr.z + self._camera_lean * dt * 8.0))
             self.app.camera.setR(desired_r)
         except Exception:
@@ -194,8 +197,6 @@ class GameplayDirector:
         if len(actors) < 2:
             return
 
-        # Protect frame time if a wave becomes huge. The tactical system already
-        # gives actors different goals; this final pass only resolves overlap.
         actors = actors[:56]
         pushes = [Vec3(0) for _ in actors]
 
