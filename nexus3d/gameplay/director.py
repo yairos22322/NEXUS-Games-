@@ -20,7 +20,9 @@ from .tactical_ai import TacticalAI
 from .vehicle_ai import VehicleDynamicsDirector
 from .weapons import WeaponLoadoutDirector
 from ..graphics.motion_fx import MotionFX
+from ..graphics.player_lighting import PlayerLightingDirector
 from ..graphics.rig_detail import RigDetailDirector
+from ..graphics.runtime_lod import RuntimeLODDirector
 from ..graphics.surface_feedback import SurfaceFeedbackDirector
 from ..graphics.world_lighting import WorldLightingDirector
 
@@ -61,7 +63,9 @@ class GameplayDirector:
         self.world_lighting = WorldLightingDirector(app)
         self.motion_fx = MotionFX(app)
         self.rig_detail = RigDetailDirector(app)
+        self.runtime_lod = RuntimeLODDirector(app, self.rig_detail)
         self.surface_feedback = SurfaceFeedbackDirector(app)
+        self.player_lighting = PlayerLightingDirector(app)
         self._spatial = SpatialHash2D(cell_size=3.2)
         self._last_camera_pos: Optional[Vec3] = None
         self._current_fov = float(app.save.setting("fov", 82.0))
@@ -91,8 +95,10 @@ class GameplayDirector:
         self.destruction.reset()
         self.world_lighting.reset()
         self.motion_fx.reset()
+        self.runtime_lod.reset()
         self.rig_detail.reset()
         self.surface_feedback.reset()
+        self.player_lighting.reset()
 
     def update(self, dt: float, mode) -> None:
         if dt <= 0.0:
@@ -143,10 +149,14 @@ class GameplayDirector:
             self.difficulty.update(dt, mode)
         if bool(self.app.save.setting("procedural_rig_detail", True)):
             self.rig_detail.update(dt, mode)
+            if bool(self.app.save.setting("runtime_lod", True)):
+                self.runtime_lod.update(dt, mode)
         if bool(self.app.save.setting("contracts", True)):
             self.contracts.update(dt, mode)
         if bool(self.app.save.setting("surface_feedback", True)):
             self.surface_feedback.update(dt, mode)
+        if bool(self.app.save.setting("player_dynamic_lights", True)):
+            self.player_lighting.update(dt, mode)
 
         self._update_dynamic_fov(dt, mode)
         self._update_camera_lean(dt, mode)
@@ -163,7 +173,13 @@ class GameplayDirector:
             self._separate_actor_group(mode, getattr(mode, "zombies", None), step)
 
     def destroy(self) -> None:
-        for system in (self.contracts, self.perks, self.surface_feedback, self.motion_fx):
+        for system in (
+            self.contracts,
+            self.perks,
+            self.surface_feedback,
+            self.player_lighting,
+            self.motion_fx,
+        ):
             try:
                 if hasattr(system, "destroy"):
                     system.destroy()
