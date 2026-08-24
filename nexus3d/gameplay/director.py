@@ -81,23 +81,27 @@ class GameplayDirector:
             self._last_camera_pos = None
             return
 
-        # The specialised systems intentionally run after each mode's own
-        # update. They polish resulting motion and prepare AI state for the
-        # following frame without stealing ownership of core game rules.
-        self.tactical.update(dt, mode)
-        self.vehicles.update(dt, mode)
-        self.space.update(dt, mode)
-        self.parkour.update(dt, mode)
+        advanced_ai = bool(self.app.save.setting("advanced_ai", True))
+        if advanced_ai:
+            self.tactical.update(dt, mode)
+            self.vehicles.update(dt, mode)
+            self.space.update(dt, mode)
+            self.parkour.update(dt, mode)
         self.combat_feel.update(dt, mode)
-        self.difficulty.update(dt, mode)
-        self.rig_detail.update(dt, mode)
+        if bool(self.app.save.setting("adaptive_difficulty", True)):
+            self.difficulty.update(dt, mode)
+        if bool(self.app.save.setting("procedural_rig_detail", True)):
+            self.rig_detail.update(dt, mode)
 
         self._update_dynamic_fov(dt, mode)
         self._update_camera_lean(dt, mode)
-        self.motion_fx.update(dt, mode)
+        if bool(self.app.save.setting("motion_fx", True)):
+            self.motion_fx.update(dt, mode)
+        else:
+            self.motion_fx.update(dt, None)
 
         self._crowd_accumulator += dt
-        if self._crowd_accumulator >= 1.0 / 30.0:
+        if advanced_ai and self._crowd_accumulator >= 1.0 / 30.0:
             step = min(0.08, self._crowd_accumulator)
             self._crowd_accumulator = 0.0
             self._separate_actor_group(mode, getattr(mode, "enemies", None), step)
@@ -156,8 +160,6 @@ class GameplayDirector:
 
         ads_amount = max(0.0, min(1.0, float(getattr(mode, "ads_amount", 0.0) or 0.0)))
         if game_id == "neon_ops" and ads_amount > 0.0:
-            # ADS wins over speed FOV. Smooth interpolation is handled by the
-            # shared FOV smoothing below, so aiming never snaps the lens.
             boost *= 1.0 - ads_amount * 0.85
             base_fov -= 13.0 * ads_amount
 
@@ -172,7 +174,6 @@ class GameplayDirector:
             pass
 
     def _update_camera_lean(self, dt: float, mode) -> None:
-        """Adds a tiny inertial roll without fighting mode-owned camera rigs."""
         game_id = str(getattr(mode, "game_id", ""))
         target = 0.0
         if game_id == "street_rush":
