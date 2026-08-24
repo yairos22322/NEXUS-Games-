@@ -12,13 +12,16 @@ from .difficulty import AdaptiveDifficultyDirector
 from .environment_gameplay import EnvironmentGameplayDirector
 from .navigation import NavigationDirector
 from .parkour import ParkourDirector
+from .projectile_safety import SweptProjectileSafety
 from .space_tactics import SpaceCombatDirector
 from .spatial import SpatialHash2D
 from .tactical_ai import TacticalAI
 from .vehicle_ai import VehicleDynamicsDirector
+from .weapons import WeaponLoadoutDirector
 from ..graphics.motion_fx import MotionFX
 from ..graphics.rig_detail import RigDetailDirector
 from ..graphics.surface_feedback import SurfaceFeedbackDirector
+from ..graphics.world_lighting import WorldLightingDirector
 
 
 class GameplayDirector:
@@ -26,9 +29,10 @@ class GameplayDirector:
 
     The five modes remain authoritative for their core rules. This layer adds
     systems that are expensive or repetitive to implement five times: tactical
-    perception, A* navigation, dynamic contracts, weather/gameplay coupling,
-    destructible combat props, traffic/space/parkour logic, combat feel,
-    spatial broadphase, rig detail, surface feedback and motion FX.
+    perception, A* navigation, contracts, weather/gameplay coupling, dynamic
+    lighting, destructible combat props, weapon loadouts, swept projectile
+    safety, traffic/space/parkour logic, spatial broadphase, rig detail, surface
+    feedback and cinematic motion FX.
     """
 
     SPEED_REFERENCE = {
@@ -54,11 +58,14 @@ class GameplayDirector:
         self.vehicles = VehicleDynamicsDirector()
         self.space = SpaceCombatDirector()
         self.parkour = ParkourDirector()
+        self.weapons = WeaponLoadoutDirector(app)
         self.combat_feel = CombatFeelDirector()
+        self.projectile_safety = SweptProjectileSafety()
         self.difficulty = AdaptiveDifficultyDirector()
         self.environment_gameplay = EnvironmentGameplayDirector(app)
         self.contracts = ContractDirector(app)
         self.destruction = DestructibleWorldDirector()
+        self.world_lighting = WorldLightingDirector(app)
         self.motion_fx = MotionFX(app)
         self.rig_detail = RigDetailDirector(app)
         self.surface_feedback = SurfaceFeedbackDirector(app)
@@ -83,11 +90,14 @@ class GameplayDirector:
         self.vehicles.reset()
         self.space.reset()
         self.parkour.reset()
+        self.weapons.reset()
         self.combat_feel.reset()
+        self.projectile_safety.reset()
         self.difficulty.reset()
         self.environment_gameplay.reset()
         self.contracts.reset()
         self.destruction.reset()
+        self.world_lighting.reset()
         self.motion_fx.reset()
         self.rig_detail.reset()
         self.surface_feedback.reset()
@@ -112,6 +122,8 @@ class GameplayDirector:
 
         if bool(self.app.save.setting("weather_gameplay", True)):
             self.environment_gameplay.update(dt, mode)
+        if bool(self.app.save.setting("dynamic_world_lighting", True)):
+            self.world_lighting.update(dt, mode)
 
         advanced_ai = bool(self.app.save.setting("advanced_ai", True))
         if advanced_ai:
@@ -121,7 +133,12 @@ class GameplayDirector:
             self.space.update(dt, mode)
             self.parkour.update(dt, mode)
 
+        if bool(self.app.save.setting("weapon_loadout", True)):
+            self.weapons.update(dt, mode)
         self.combat_feel.update(dt, mode)
+
+        if bool(self.app.save.setting("swept_projectiles", True)):
+            self.projectile_safety.update(dt, mode)
         if bool(self.app.save.setting("adaptive_difficulty", True)):
             self.difficulty.update(dt, mode)
         if bool(self.app.save.setting("procedural_rig_detail", True)):
