@@ -85,16 +85,9 @@ class WeaponLoadoutDirector:
         damage_bonus = min(0.18, max(0, level - 1) * 0.006)
         for slot, spec in enumerate(self.SPECS, start=1):
             scaled_spec = WeaponSpec(
-                spec.weapon_id,
-                spec.name,
-                spec.damage * (1.0 + damage_bonus),
-                spec.fire_interval,
-                spec.spread,
-                spec.magazine,
-                spec.reserve,
-                spec.reload_time,
-                spec.visual_scale,
-                spec.accent,
+                spec.weapon_id, spec.name, spec.damage * (1.0 + damage_bonus),
+                spec.fire_interval, spec.spread, spec.magazine, spec.reserve,
+                spec.reload_time, spec.visual_scale, spec.accent,
             )
             self.weapons[slot] = WeaponRuntime(scaled_spec, scaled_spec.magazine, scaled_spec.reserve)
 
@@ -137,15 +130,17 @@ class WeaponLoadoutDirector:
         runtime = self.weapons.get(self.active_slot)
         if runtime is None:
             return
-        # Ammo is authoritative in the mode while a weapon is active.
         runtime.ammo = int(getattr(mode, "ammo", runtime.ammo))
         runtime.reserve = int(getattr(mode, "reserve_ammo", runtime.reserve))
-        self._apply_stats_only(mode, runtime.spec)
+        self._apply_perk_stats(mode, runtime.spec)
 
     def _apply(self, mode, runtime: WeaponRuntime) -> None:
         spec = runtime.spec
         mode.weapon_name = spec.name
-        self._apply_stats_only(mode, spec)
+        self._apply_perk_stats(mode, spec)
+        # Native spread is only written during a switch. CombatFeelDirector owns
+        # ADS tightening and recoil bloom after this point.
+        mode.weapon_spread = spec.spread
         mode.ammo = runtime.ammo
         mode.reserve_ammo = runtime.reserve
         try:
@@ -162,17 +157,12 @@ class WeaponLoadoutDirector:
                 pass
 
     @staticmethod
-    def _apply_stats_only(mode, spec: WeaponSpec) -> None:
+    def _apply_perk_stats(mode, spec: WeaponSpec) -> None:
         damage_multiplier = max(0.25, float(getattr(mode, "weapon_damage_multiplier", 1.0)))
         reload_multiplier = max(0.45, float(getattr(mode, "weapon_reload_multiplier", 1.0)))
         mag_bonus = max(0, int(getattr(mode, "weapon_mag_bonus", 0)))
         mode.weapon_damage = spec.damage * damage_multiplier
         mode.fire_interval = spec.fire_interval
-        # CombatFeelDirector turns this native value into the final ADS/recoil spread.
-        if str(getattr(mode, "weapon_name", "")) == spec.name and not bool(getattr(mode, "ads_active", False)):
-            current = float(getattr(mode, "weapon_spread", spec.spread))
-            if abs(current - spec.spread) < spec.spread * 3.0:
-                mode.weapon_spread = spec.spread
         mode.magazine_size = spec.magazine + mag_bonus
         mode.reload_time = spec.reload_time * reload_multiplier
 
