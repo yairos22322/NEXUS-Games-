@@ -7,6 +7,7 @@ from panda3d.core import AntialiasAttrib
 from .environment import CinematicEnvironment
 from .materials import MaterialLibrary
 from .quality import GraphicsQuality, resolve_quality
+from .reactive_lighting import ReactiveLighting
 from .runtime import AdaptiveGraphicsController
 
 
@@ -25,9 +26,14 @@ class GraphicsDirector:
         self.seed_counter = 0
         self.errors: list[str] = []
         self.runtime = AdaptiveGraphicsController(app)
+        self.reactive_lighting: Optional[ReactiveLighting] = None
         self._exposure = 0.25
         self._exposure_target = 0.25
         self.initialize()
+        try:
+            self.reactive_lighting = ReactiveLighting(app)
+        except Exception as exc:
+            self.errors.append(f"reactive lighting unavailable: {exc}")
 
     def initialize(self) -> None:
         self.app.render.setAntialias(AntialiasAttrib.MMultisample)
@@ -143,7 +149,6 @@ class GraphicsDirector:
     def _update_exposure(self, dt: float) -> None:
         if not bool(self.app.save.setting("dynamic_exposure", True)):
             return
-        # Lightning and bright skies gently pull exposure down instead of clipping.
         flash = 0.0
         sky_luma = 0.5
         if self.environment is not None:
@@ -169,6 +174,8 @@ class GraphicsDirector:
         self.runtime.update(dt, self.environment)
         if self.environment is not None:
             self.environment.update(dt)
+        if self.reactive_lighting is not None:
+            self.reactive_lighting.update(dt, getattr(self.app, "mode", None))
         self._update_exposure(dt)
 
     def runtime_snapshot(self):
@@ -196,6 +203,12 @@ class GraphicsDirector:
         if self.environment is not None:
             self.environment.destroy()
             self.environment = None
+        if self.reactive_lighting is not None:
+            try:
+                self.reactive_lighting.destroy()
+            except Exception:
+                pass
+            self.reactive_lighting = None
         if self.filters is not None:
             try:
                 self.filters.cleanup()
