@@ -48,10 +48,10 @@ GAMES: List[GameMeta] = [
         subtitle="TACTICAL ARENA",
         genre="3D FPS",
         description=(
-            "First-person combat with ADS, recoil, tactical roles, A* pathfinding, destructible cover, "
-            "weather-aware perception, contracts, wave escalation, armor, pickups, sprint and dash."
+            "First-person combat with ADS, recoil, three-weapon loadout, A* tactical pathfinding, "
+            "destructible cover, weather-aware perception, run upgrades, contracts and wave escalation."
         ),
-        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
+        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "1/2/3 WEAPONS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
         secondary=BLUE,
         badge="01",
@@ -77,7 +77,7 @@ GAMES: List[GameMeta] = [
         genre="3D SURVIVAL",
         description=(
             "Over-the-shoulder survival with surround behaviour, A* obstacle routing, destructible props, "
-            "weather-aware horde timing, contracts, elite infected, medkits and shotgun combat."
+            "weather-aware horde timing, run upgrades, contracts, elite infected and shotgun combat."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
         accent=GREEN,
@@ -90,8 +90,8 @@ GAMES: List[GameMeta] = [
         subtitle="VOID FRONT",
         genre="3D SPACE COMBAT",
         description=(
-            "Arcade space combat with lasers, missiles, regenerating shields, evasive formations, "
-            "capital ships, contracts and boss encounters in a procedural star field."
+            "Space combat with swept projectiles, lasers, missiles, run upgrades, regenerating shields, "
+            "evasive formations, capital ships, contracts and boss encounters."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
         accent=BLUE,
@@ -148,7 +148,11 @@ DEFAULT_SETTINGS = {
     "motion_fx": True,
     "procedural_rig_detail": True,
     "weather_gameplay": True,
+    "dynamic_world_lighting": True,
     "contracts": True,
+    "run_perks": True,
     "destructible_props": True,
     "surface_feedback": True,
+    "weapon_loadout": True,
+    "swept_projectiles": True,
 }
