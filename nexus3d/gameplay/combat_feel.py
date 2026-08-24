@@ -17,6 +17,7 @@ class CombatFeelDirector:
         self._mode_id: Optional[int] = None
         self._base_spread = 0.0
         self._last_ammo: Optional[int] = None
+        self._weapon_signature = ""
         self._shot_index = 0
         self._recoil_pitch = 0.0
         self._recoil_yaw = 0.0
@@ -32,6 +33,7 @@ class CombatFeelDirector:
         self._mode_id = None
         self._base_spread = 0.0
         self._last_ammo = None
+        self._weapon_signature = ""
         self._shot_index = 0
         self._recoil_pitch = 0.0
         self._recoil_yaw = 0.0
@@ -48,11 +50,24 @@ class CombatFeelDirector:
         if not hasattr(mode, "weapon_root") or mode.weapon_root.isEmpty():
             return
 
+        current_signature = str(getattr(mode, "weapon_name", "weapon"))
         if self._mode_id != id(mode):
             self._mode_id = id(mode)
             self._base_spread = max(0.0001, float(getattr(mode, "weapon_spread", 0.018)))
             self._last_ammo = int(getattr(mode, "ammo", 0))
+            self._weapon_signature = current_signature
             self._shot_index = 0
+        elif current_signature != self._weapon_signature:
+            # WeaponLoadoutDirector writes the new weapon's native spread before
+            # this update. Capture it as the new recoil baseline instead of
+            # dragging every weapon back toward the first rifle's accuracy.
+            self._weapon_signature = current_signature
+            self._base_spread = max(0.0001, float(getattr(mode, "weapon_spread", self._base_spread)))
+            self._last_ammo = int(getattr(mode, "ammo", 0))
+            self._shot_index = 0
+            self._recoil_pitch *= 0.35
+            self._recoil_yaw *= 0.35
+            self._kick *= 0.30
 
         paused = bool(getattr(mode, "paused", False) or getattr(mode, "game_over", False))
         key = getattr(mode, "key", None)
@@ -70,15 +85,11 @@ class CombatFeelDirector:
                 self._on_shot(mode)
         self._last_ammo = ammo
 
-        # Recoil returns to centre in two stages: the sharp weapon kick decays
-        # quickly, while camera recoil settles slightly slower.
         recovery = 13.5 if self._ads > 0.5 else 10.5
         self._recoil_pitch = self._smooth(self._recoil_pitch, 0.0, recovery, dt)
         self._recoil_yaw = self._smooth(self._recoil_yaw, 0.0, recovery * 1.2, dt)
         self._kick = self._smooth(self._kick, 0.0, 18.0, dt)
 
-        # ADS meaningfully tightens the existing hitscan spread. Sustained fire
-        # opens it back up, so holding the trigger is less accurate than bursts.
         recoil_bloom = min(1.0, abs(self._recoil_pitch) * 0.08 + self._kick * 0.55)
         ads_multiplier = 1.0 - self._ads * 0.58
         mode.weapon_spread = self._base_spread * ads_multiplier * (1.0 + recoil_bloom * 0.48)
@@ -89,16 +100,29 @@ class CombatFeelDirector:
         self._shot_index += 1
         pattern = self._shot_index
         ads_control = 1.0 - self._ads * 0.34
-        vertical = (0.24 + min(0.34, pattern * 0.012)) * ads_control
-        horizontal = math.sin(pattern * 1.73) * 0.075 + self._rng.uniform(-0.035, 0.035)
+        weapon_name = str(getattr(mode, "weapon_name", "")).upper()
+        if "DMR" in weapon_name:
+            vertical_base = 0.42
+            vertical_growth = 0.010
+            horizontal_scale = 0.72
+            kick_add = 0.62
+        elif "SMG" in weapon_name:
+            vertical_base = 0.16
+            vertical_growth = 0.009
+            horizontal_scale = 1.18
+            kick_add = 0.30
+        else:
+            vertical_base = 0.24
+            vertical_growth = 0.012
+            horizontal_scale = 1.0
+            kick_add = 0.44
+        vertical = (vertical_base + min(0.34, pattern * vertical_growth)) * ads_control
+        horizontal = (math.sin(pattern * 1.73) * 0.075 + self._rng.uniform(-0.035, 0.035)) * horizontal_scale
         horizontal *= ads_control
-        self._recoil_pitch = min(3.4, self._recoil_pitch + vertical)
-        self._recoil_yaw = max(-1.6, min(1.6, self._recoil_yaw + horizontal))
-        self._kick = min(1.0, self._kick + 0.44)
+        self._recoil_pitch = min(4.2, self._recoil_pitch + vertical)
+        self._recoil_yaw = max(-1.9, min(1.9, self._recoil_yaw + horizontal))
+        self._kick = min(1.0, self._kick + kick_add)
 
-        # Feed recoil into the aim state used by the next frame. The on-screen
-        # weapon also kicks independently, which makes recoil readable without
-        # huge camera shake.
         try:
             mode.pitch = min(78.0, float(mode.pitch) + vertical * 0.62)
             mode.yaw += horizontal * 0.34
@@ -132,8 +156,6 @@ class CombatFeelDirector:
         self._pose_z = self._smooth(self._pose_z, target_z, 14.0, dt)
         self._pose_p = self._smooth(self._pose_p, target_p, 17.0, dt)
 
-        # The base mode writes a small bob into root Z before this update.
-        # Preserve a fraction of that bob in hip fire and suppress it in ADS.
         try:
             existing_bob = float(mode.weapon_root.getZ())
         except Exception:
@@ -145,7 +167,6 @@ class CombatFeelDirector:
             mode.weapon_root.setY(self._pose_y)
             mode.weapon_root.setZ(self._pose_z + bob)
             mode.weapon_root.setP(self._pose_p)
-            # Base mode owns roll for strafing. Add a small recoil yaw only.
             mode.weapon_root.setH(self._recoil_yaw * 2.4)
         except Exception:
             pass

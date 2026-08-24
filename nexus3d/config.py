@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 Color = Tuple[float, float, float, float]
 
-APP_TITLE = "NEXUS FIVE 3D // NEXT GEN"
+APP_TITLE = "NEXUS FIVE 3D // SIMULATION V3"
 WINDOW_WIDTH = 1600
 WINDOW_HEIGHT = 900
 TARGET_FPS = 144
@@ -48,10 +48,10 @@ GAMES: List[GameMeta] = [
         subtitle="TACTICAL ARENA",
         genre="3D FPS",
         description=(
-            "First-person arena combat with hitscan weapons, ADS, recoil, tactical enemy roles, "
-            "wave escalation, armor, pickups, sprint and dash."
+            "First-person combat with ADS, recoil, three-weapon loadout, A* tactical pathfinding, "
+            "destructible cover, directional hit reactions, weather-aware perception, upgrades and contracts."
         ),
-        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
+        controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "1/2/3 WEAPONS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
         secondary=BLUE,
         badge="01",
@@ -62,8 +62,8 @@ GAMES: List[GameMeta] = [
         subtitle="MIDNIGHT CIRCUIT",
         genre="3D DRIVING",
         description=(
-            "High-speed third-person traffic run with nitro, handbrake drifting, intelligent traffic, "
-            "close-call combos, overtakes and escalating road pressure."
+            "High-speed third-person traffic run with nitro, handbrake drifting, intelligent overtaking, "
+            "wet-road grip changes, skid marks, contracts, close calls and escalating road pressure."
         ),
         controls=["A/D STEER", "W ACCELERATE", "S BRAKE", "SHIFT NITRO", "SPACE HANDBRAKE"],
         accent=MAGENTA,
@@ -76,8 +76,8 @@ GAMES: List[GameMeta] = [
         subtitle="LAST DISTRICT",
         genre="3D SURVIVAL",
         description=(
-            "Over-the-shoulder survival shooter with surrounding horde behaviour, elite infected, "
-            "medkits, armor drops, shotgun bursts and increasingly brutal nights."
+            "Over-the-shoulder survival with surround behaviour, A* routing, destructible props, knockback, "
+            "weather-aware horde timing, run upgrades, contracts, elite infected and shotgun combat."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
         accent=GREEN,
@@ -90,8 +90,8 @@ GAMES: List[GameMeta] = [
         subtitle="VOID FRONT",
         genre="3D SPACE COMBAT",
         description=(
-            "Arcade space combat with lasers, missiles, regenerating shields, evasive formations, "
-            "capital ships and boss encounters in a procedural star field."
+            "Space combat with swept projectiles, hit impulses, lasers, missiles, run upgrades, shields, "
+            "evasive formations, capital ships, contracts and boss encounters."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
         accent=BLUE,
@@ -104,8 +104,8 @@ GAMES: List[GameMeta] = [
         subtitle="SKYLINE BREACH",
         genre="3D PARKOUR",
         description=(
-            "Third-person rooftop run with buffered jumps, vaulting, wall runs, slides, air dashes, "
-            "laser gates, drones and score multipliers."
+            "Third-person rooftop run with buffered jumps, vaulting, wall runs, wind influence, slides, "
+            "air dashes, contracts, laser gates, drones and score multipliers."
         ),
         controls=["A/D STRAFE", "SPACE JUMP / WALL JUMP", "SHIFT DASH", "CTRL SLIDE", "W SPEED PUSH"],
         accent=ORANGE,
@@ -147,4 +147,15 @@ DEFAULT_SETTINGS = {
     "advanced_ai": True,
     "motion_fx": True,
     "procedural_rig_detail": True,
+    "runtime_lod": True,
+    "player_dynamic_lights": True,
+    "weather_gameplay": True,
+    "dynamic_world_lighting": True,
+    "contracts": True,
+    "run_perks": True,
+    "destructible_props": True,
+    "surface_feedback": True,
+    "weapon_loadout": True,
+    "swept_projectiles": True,
+    "hit_reactions": True,
 }
