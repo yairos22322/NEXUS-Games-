@@ -1,9 +1,129 @@
-# NEXUS FIVE 3D // ULTRA
+# NEXUS FIVE 3D // V4 ASCENSION
 
-A five-mode Python 3D arcade project built on Panda3D with an optional `panda3d-simplepbr` physically based rendering pipeline.
+NEXUS FIVE is a five-mode 3D arcade project built in Python with Panda3D. V4 ASCENSION shifts the project from a systems-heavy prototype toward a stronger game loop with persistent progression, authored operations, meaningful rewards, deeper run builds and cleaner simulation architecture.
 
-This ULTRA build focuses on the render layer rather than simply adding more gameplay code. It adds a separate graphics subsystem for PBR-style materials, dynamic shadow maps, procedural sky shaders, animated water shaders, weather volumes, distant city detail, emissive accents, material variation, cinematic quality presets and a fallback post-processing path.
+The project remains fully editable and self-contained. It uses procedural geometry as a fallback, while the render architecture is ready for authored `.glb` models and animation assets.
 
+## V4 highlights
+
+### Persistent NEXUS Lab
+Press `F2` from the main menu to open the NEXUS Lab and spend credits on permanent account-wide upgrades:
+
+- Ballistic Core: combat output
+- Reflex Link: reload and weapon handling
+- Kinetic Frame: movement and handling
+- Field Cache: starting reserves and utility
+- Aegis Plating: survivability
+- Salvage Protocol: larger credit rewards
+
+Credits are now earned from operations, contracts, run payouts, achievements and level-ups.
+
+### Authored operations
+Every mode has multi-stage operations layered over the endless arcade loop. Completing an operation records a real win and awards score, XP and credits before a harder follow-up operation is issued.
+
+### Deeper roguelite builds
+Combat perk drafts now include behavioural build effects in addition to stat upgrades. Examples include:
+
+- heal on kill
+- armor or shield siphon
+- kill-generated ammunition or energy
+- low-health damage bonuses
+- dash-triggered magazine refill
+- fire-rate overclocking
+
+Perk cards can be selected with the mouse or `Z / X / C`.
+
+### V4 simulation cleanup
+
+- Dedicated CameraDirector owns final shared FOV and camera roll
+- cumulative V3 camera-roll drift removed
+- adaptive difficulty no longer permanently ratchets player power upward
+- persistent upgrades are applied once per run
+- run modifiers execute shared perk behaviours without duplicating logic in every mode
+- versioned V4 save migration preserves older profiles
+- save writes use a temporary file and atomic replace
+
+### Compact deterministic content
+V3 contained a very large generated literal content catalog. V4 replaces that catalog with compact deterministic generators for weapons, enemies, traffic, zombies, runner patterns, space formations and Neon Ops arenas.
+
+The same public gameplay interfaces remain available, but balancing is easier and repository size is substantially lower.
+
+## Five playable modes
+
+### 1. NEON OPS
+First-person cyber arena combat with:
+
+- mouse aim and ADS
+- AR / SMG / DMR weapon switching
+- recoil and independent ammunition
+- tactical enemy roles
+- A* navigation
+- destructible cover
+- headshots and hit reactions
+- run perks, contracts and multi-stage operations
+
+### 2. STREET RUSH
+Third-person traffic racing with:
+
+- acceleration and braking
+- nitro
+- handbrake drifting
+- close-call chains
+- intelligent traffic behaviour
+- weather-dependent road grip
+- skid feedback
+- contracts and operations
+
+### 3. ZOMBIE SIEGE
+Over-the-shoulder survival with:
+
+- walker, runner and brute infected
+- shotgun combat
+- stamina, armor and medkits
+- A* horde routing
+- destructible cover
+- knockback
+- build-defining perks
+- contracts and operations
+
+### 4. ORBITAL WARS
+3D space combat with:
+
+- lasers and homing missiles
+- shields, hull and energy
+- boost and pulse abilities
+- formations and evasive enemies
+- swept projectile collision
+- capital enemies
+- shield/energy build perks
+- contracts and operations
+
+### 5. CYBER RUNNER
+Third-person rooftop parkour with:
+
+- buffered jumping and coyote time
+- vaulting and wall-running support
+- sliding
+- air dash
+- data shards and drones
+- increasing speed and score flow
+- contracts and operations
+
+## Graphics
+
+NEXUS supports:
+
+- optional `panda3d-simplepbr` PBR rendering
+- Panda3D fallback shader path
+- dynamic shadow maps
+- HDR / bloom / SSAO fallback post-processing
+- procedural sky shaders
+- animated water shaders
+- weather volumes
+- dynamic world and player lighting
+- runtime LOD
+- adaptive graphics density
+- LOW / MEDIUM / HIGH / ULTRA / CINEMATIC presets
 
 ## Quick start
 
@@ -21,164 +141,67 @@ python CHECK_PROJECT.py
 python main.py
 ```
 
-## GitHub-ready repository
-
-This distribution includes repository hygiene and collaboration files out of the box:
-
-- `.gitignore` and `.gitattributes`
-- GitHub Actions syntax checks
-- bug and feature issue templates
-- pull request template
-- `CONTRIBUTING.md`, `SECURITY.md`, and `CHANGELOG.md`
-- `PUBLISH_TO_GITHUB.bat` and PowerShell publisher
-- `GITHUB_UPLOAD_GUIDE.md`
-
-No open-source license is selected automatically. Choose one later only if you want to grant reuse rights.
-
-## Reality check
-
-This project is **not GTA 6 and does not claim to beat GTA 6 visually**. A modern Rockstar-scale game depends on a huge proprietary engine, professional 3D art, scanned materials, character animation, motion capture, authored world assets, streaming systems and a very large team. More source lines alone cannot replace those assets.
-
-The goal of this build is different: push a pure-Python/Panda3D prototype much further visually while keeping the whole project editable.
-
-## Current project size
-
-Run:
-
-```bash
-python CHECK_PROJECT.py
-```
-
-The ULTRA build contains more than 70,000 Python source lines. The large count is mainly caused by runtime-used visual, weather and material preset libraries. The renderer itself is much smaller and is where the important visual work happens.
-
-## New ULTRA graphics layer
-
-- Physically based metallic/roughness material parameters
-- Optional `panda3d-simplepbr` render pipeline
-- Filmic tone mapping through the PBR pipeline
-- Directional shadow maps up to 4096 x 4096 on CINEMATIC
-- Automatic fallback shader pipeline if simplepbr is unavailable
-- Fallback HDR, bloom and SSAO through Panda3D CommonFilters
-- Procedural GLSL 1.50 sky with gradient atmosphere, sun halo, clouds and stars
-- Procedural animated water with vertex displacement and ripple highlights
-- Camera-centred 3D rain, storms, ash, dust, snow and spark fields
-- Lightning flash treatment without permanently changing the clear colour
-- Distant procedural skyline for stronger depth and parallax
-- Emissive signs and distant light artifacts
-- Flat-corrected box normals for better per-pixel lighting
-- Material library with metallic, roughness, glass, concrete, asphalt, skin, rubber, vehicle paint, weapon metal and emissive categories
-- 2,100 visual environment presets
-- 1,900 material presets
-- 600 weather presets
-- LOW / MEDIUM / HIGH / ULTRA / CINEMATIC quality modes
-
-## Five 3D games
-
-### 1. NEON OPS
-First-person arena shooter with mouse aim, rifle, ammo, reload, armor, headshots, enemy squads, elites, projectiles, waves, pickups, procedural arenas and 3D impact effects.
-
-### 2. STREET RUSH
-Third-person 3D traffic racer with chase camera, traffic vehicles, moving city sections, nitro, collisions, near misses, health and dynamic field of view.
-
-### 3. ZOMBIE SIEGE
-3D survival shooter with shotgun simulation, walker/runner/brute infected, health, armor, stamina, medkits, waves, drops and ruined-city scenery.
-
-### 4. ORBITAL WARS
-3D space combat with fighters, bombers, capital enemies, lasers, missiles, shields, hull, energy, boost, pulse attacks, starfield and planet geometry.
-
-### 5. CYBER RUNNER
-Third-person rooftop parkour with jumping, sliding, phase dash, laser gates, barriers, data shards, drones, increasing speed and procedural obstacle sequences.
-
-## Graphics quality
-
-The Settings screen now contains:
-
-```text
-LOW
-MEDIUM
-HIGH
-ULTRA
-CINEMATIC
-```
-
-A restart is recommended after changing the quality because MSAA, the light budget and parts of the PBR pipeline are created at startup.
-
-CINEMATIC uses the highest shadow resolution and environment density and is intentionally expensive.
-
-## Install on Windows
-
-1. Extract the ZIP.
-2. Open the extracted folder.
-3. Double-click `INSTALL_AND_RUN.bat`.
-4. The installer installs the requirements and runs `main.py`.
-
-Manual installation:
-
-```bash
-python -m pip install -r requirements.txt
-python main.py
-```
-
-## Requirements
+Requirements:
 
 ```text
 panda3d==1.10.16
 panda3d-simplepbr==0.13.1
 ```
 
-The game still has a built-in shader/post-processing fallback if `simplepbr` cannot initialize.
+## Validation
 
-## Important art limitation
+The GitHub Actions matrix runs on Python 3.11, 3.12 and 3.13 and performs:
 
-The included world is intentionally procedural and code-generated. That makes the ZIP self-contained, but it is also the biggest reason it cannot look like a current AAA open-world game.
+1. dependency installation
+2. full Python compilation
+3. `CHECK_PROJECT.py`
+4. Panda3D / Direct / simplepbr import verification
+5. unit-test discovery
 
-For the next major visual jump, replace procedural boxes/ships/characters with properly authored `.glb` assets that contain:
+V4 adds tests for save migration, credit spending, upgrade clamping, deterministic procedural content and operation definitions/scaling in addition to the existing V3 simulation tests.
 
-- high-poly/low-poly models
-- UVs
-- 2K or 4K base-colour textures
-- roughness and metallic maps
-- normal maps
-- baked detail
-- rigged characters
-- authored animations
+## V4 files
 
-The render layer in this build is structured so those assets can be integrated later without rewriting all five game modes.
-
-## Key folders
+Key additions include:
 
 ```text
-NEXUS_FIVE_3D_ULTRA/
-  main.py
-  CHECK_PROJECT.py
-  INSTALL_AND_RUN.bat
-  RUN.bat
-  requirements.txt
-  nexus3d/
-    app.py
-    primitives.py
-    world.py
-    ui.py
-    graphics/
-      pipeline.py
-      quality.py
-      environment.py
-      atmosphere.py
-      weather.py
-      materials.py
-      geometry.py
-      visual_presets.py
-      material_presets.py
-      weather_presets.py
-    shaders/
-      sky.vert
-      sky.frag
-      water.vert
-      water.frag
-    modes/
-      neon_ops.py
-      street_rush.py
-      zombie_siege.py
-      orbital_wars.py
-      cyber_runner.py
+nexus3d/
+  progression.py
+  gameplay/
+    camera.py
+    missions.py
+    run_modifiers.py
+    perks.py
+    contracts.py
+    director.py
+  data/
+    content_catalog.py
+
+tests/
+  test_v4_progression.py
+
+UPGRADE_V4_NOTES.md
+V4_PLAYTEST.md
 ```
+
+## Important presentation limitation
+
+V4 improves systems, progression, simulation architecture and content structure. It does not pretend procedural box-built characters and vehicles equal modern AAA authored assets.
+
+The largest remaining visual upgrade requires real asset production:
+
+- rigged character models
+- skeletal animation clips and blending
+- high-quality weapon and vehicle meshes
+- authored environment props
+- PBR texture sets and normal maps
+- professional sound libraries and music
+- extensive hands-on playtesting and balance passes
+
+The codebase is structured so those assets can be integrated without replacing the five-mode architecture.
+
+## Project philosophy
+
+NEXUS V4 prioritizes player-facing depth over source-line count. New systems should improve decisions, feel, progression, replayability or presentation. Generated literal data should not be used merely to make the repository look larger.
+
+See `UPGRADE_V4_NOTES.md` for the full V4 technical summary and `V4_PLAYTEST.md` for the manual playtest checklist.

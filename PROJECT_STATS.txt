@@ -1,29 +1,59 @@
-NEXUS FIVE 3D // ULTRA - BUILD STATS
+NEXUS FIVE 3D // V4 ASCENSION - BUILD SUMMARY
 
 Engine: Panda3D 1.10.16
 Optional PBR pipeline: panda3d-simplepbr 0.13.1
 Language: Python + GLSL shaders
 Playable modes: 5
-Python source files: 31
-Python source lines: 77,786
+Save schema: V4
 Graphics quality presets: LOW / MEDIUM / HIGH / ULTRA / CINEMATIC
-Visual environment presets: 2,100
-Material presets: 1,900
-Weather presets: 600
-Procedural sky shader: yes
-Procedural animated water shader: yes
-Dynamic shadow maps: yes
-PBR metallic/roughness materials: yes
-Dynamic weather: yes
-Distant skyline layer: yes
-Fallback HDR/Bloom/SSAO path: yes
-JSON profile saving: yes
-Fullscreen/FOV/sensitivity: yes
 
-Validation performed in build environment:
-- Python AST syntax check: PASS
+V4 gameplay/product systems:
+- Persistent NEXUS Lab economy: yes
+- Account-wide upgrade tracks: 6
+- Multi-stage operation system: yes
+- Operation templates: 10 across 5 modes
+- Real win tracking through operation completion: yes
+- Persistent achievements: yes
+- Run payouts: yes
+- Behavioural roguelite modifiers: yes
+- Contracts: yes
+- A* navigation: yes
+- Spatial-hash crowd broadphase: yes
+- Swept projectile safety: yes
+- Destructible gameplay props: yes
+- Weather-driven gameplay: yes
+- Dynamic world/player lighting: yes
+- Runtime LOD: yes
+- Adaptive difficulty: reversible encounter pressure
+- Shared camera authority: yes
+
+Content architecture:
+- Deterministic runtime weapon generation: yes
+- Deterministic enemy/zombie generation: yes
+- Deterministic traffic generation: yes
+- Deterministic runner pattern generation: yes
+- Deterministic space formation generation: yes
+- Deterministic Neon Ops arena generation: yes
+- V3 literal content catalog bloat removed: yes
+
+Rendering:
+- Procedural sky shader: yes
+- Procedural animated water shader: yes
+- Dynamic shadow maps: yes
+- PBR metallic/roughness materials: yes
+- Dynamic weather: yes
+- Distant skyline layer: yes
+- Fallback HDR/Bloom/SSAO path: yes
+
+Validation:
+- GitHub Actions Python 3.11: PASS on V4 pull request
+- GitHub Actions Python 3.12: PASS on V4 pull request
+- GitHub Actions Python 3.13: PASS on V4 pull request
+- Dependency installation: PASS
 - Python compileall: PASS
-- Visual/material/weather preset integrity: PASS
-- Full rendered Panda3D runtime: NOT EXECUTED because Panda3D could not be installed in the build container (network package download unavailable).
+- CHECK_PROJECT V4 integrity: PASS
+- Panda3D / Direct / simplepbr imports: PASS
+- Unit tests: PASS
 
-Run CHECK_PROJECT.py locally to validate the extracted source tree.
+Run `python CHECK_PROJECT.py` for exact current Python source-file and line counts on your checkout.
+Run `python -m unittest discover -s tests -p "test_*.py" -v` for the complete automated test suite.
