@@ -9,6 +9,7 @@ from .audio import ProceduralAudio
 from .config import APP_TITLE, DIFFICULTIES, TARGET_FPS, WINDOW_HEIGHT, WINDOW_WIDTH
 from .gameplay import GameplayDirector
 from .graphics.pipeline import GraphicsDirector
+from .progression import MetaProgressionDirector
 from .save_system import SaveSystem
 
 loadPrcFileData("", f"window-title {APP_TITLE}")
@@ -35,6 +36,7 @@ class NexusApp(ShowBase):
         self.save = SaveSystem()
         self.audio = ProceduralAudio(self)
         self.graphics = GraphicsDirector(self)
+        self.progression = MetaProgressionDirector(self)
         self.gameplay = GameplayDirector(self)
         self.menu = None
         self.mode = None
@@ -85,7 +87,9 @@ class NexusApp(ShowBase):
                 self.menu.destroy()
             except Exception:
                 pass
+
         from .ui import NexusMenu
+
         self.render.clearLight()
         self.render.clearFog()
         self.setBackgroundColor(0.005, 0.008, 0.016, 1)
@@ -95,8 +99,10 @@ class NexusApp(ShowBase):
         self.gameplay.reset()
         self.graphics.set_profile("menu")
         self.menu = NexusMenu(self)
+        self.progression.on_menu_open()
 
     def start_game(self, game_id: str) -> None:
+        self.progression.on_game_start()
         if self.menu is not None:
             self.menu.destroy()
             self.menu = None
@@ -108,6 +114,8 @@ class NexusApp(ShowBase):
         self.graphics.set_profile(game_id)
         mode_cls = self._mode_class(game_id)
         self.mode = mode_cls(self)
+        # Apply account-wide upgrades before the first playable frame.
+        self.progression.apply_to_mode(self.mode)
         self.save.add_play(game_id)
 
     @staticmethod
@@ -132,17 +140,18 @@ class NexusApp(ShowBase):
     def _update(self, task):
         dt = min(0.05, max(0.0, self.clock.getDt()))
         self.graphics.update(dt)
+
         if self.menu is not None:
             self.menu.update(dt)
 
         if self.mode is not None and self.mode.active:
-            # When a frame hitches, split simulation into smaller deterministic
-            # chunks. This reduces tunnelling and unstable steering without
-            # forcing the renderer itself to run multiple times.
-            steps = max(1, min(
-                self.max_simulation_substeps,
-                int(math.ceil(dt / self.simulation_step_target)),
-            ))
+            steps = max(
+                1,
+                min(
+                    self.max_simulation_substeps,
+                    int(math.ceil(dt / self.simulation_step_target)),
+                ),
+            )
             step_dt = dt / steps if steps > 0 else dt
             for _ in range(steps):
                 if self.mode is None or not self.mode.active:
@@ -151,6 +160,8 @@ class NexusApp(ShowBase):
                 self.gameplay.update(step_dt, self.mode)
         else:
             self.gameplay.update(dt, self.mode)
+
+        self.progression.update(dt, self.mode)
         return task.cont
 
     def userExit(self) -> None:
@@ -163,6 +174,10 @@ class NexusApp(ShowBase):
         self.save.save()
         try:
             self.gameplay.destroy()
+        except Exception:
+            pass
+        try:
+            self.progression.destroy()
         except Exception:
             pass
         self.graphics.destroy()

@@ -5,12 +5,13 @@ from typing import Dict, List, Tuple
 
 Color = Tuple[float, float, float, float]
 
-APP_TITLE = "NEXUS FIVE 3D // SIMULATION V3"
+APP_TITLE = "NEXUS FIVE 3D // V4 ASCENSION"
 WINDOW_WIDTH = 1600
 WINDOW_HEIGHT = 900
 TARGET_FPS = 144
 SAVE_FILE = "nexus3d_profile.json"
 AUDIO_FOLDER = "generated_audio"
+SAVE_SCHEMA_VERSION = 4
 
 BLACK: Color = (0.01, 0.015, 0.025, 1.0)
 DARK: Color = (0.025, 0.035, 0.06, 1.0)
@@ -49,7 +50,7 @@ GAMES: List[GameMeta] = [
         genre="3D FPS",
         description=(
             "First-person combat with ADS, recoil, three-weapon loadout, A* tactical pathfinding, "
-            "destructible cover, directional hit reactions, weather-aware perception, upgrades and contracts."
+            "destructible cover, directional hit reactions, operation objectives, upgrades and contracts."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "RMB ADS", "1/2/3 WEAPONS", "R RELOAD", "SHIFT SPRINT", "SPACE DASH"],
         accent=CYAN,
@@ -63,7 +64,7 @@ GAMES: List[GameMeta] = [
         genre="3D DRIVING",
         description=(
             "High-speed third-person traffic run with nitro, handbrake drifting, intelligent overtaking, "
-            "wet-road grip changes, skid marks, contracts, close calls and escalating road pressure."
+            "wet-road grip changes, operation objectives, close calls and escalating road pressure."
         ),
         controls=["A/D STEER", "W ACCELERATE", "S BRAKE", "SHIFT NITRO", "SPACE HANDBRAKE"],
         accent=MAGENTA,
@@ -77,7 +78,7 @@ GAMES: List[GameMeta] = [
         genre="3D SURVIVAL",
         description=(
             "Over-the-shoulder survival with surround behaviour, A* routing, destructible props, knockback, "
-            "weather-aware horde timing, run upgrades, contracts, elite infected and shotgun combat."
+            "operation objectives, run upgrades, contracts, elite infected and shotgun combat."
         ),
         controls=["WASD MOVE", "MOUSE AIM", "LMB FIRE", "R RELOAD", "Q MEDKIT", "SHIFT SPRINT"],
         accent=GREEN,
@@ -91,7 +92,7 @@ GAMES: List[GameMeta] = [
         genre="3D SPACE COMBAT",
         description=(
             "Space combat with swept projectiles, hit impulses, lasers, missiles, run upgrades, shields, "
-            "evasive formations, capital ships, contracts and boss encounters."
+            "evasive formations, operation objectives, contracts and boss encounters."
         ),
         controls=["WASD FLY", "MOUSE AIM", "LMB LASER", "RMB MISSILE", "SHIFT BOOST", "Q PULSE"],
         accent=BLUE,
@@ -105,7 +106,7 @@ GAMES: List[GameMeta] = [
         genre="3D PARKOUR",
         description=(
             "Third-person rooftop run with buffered jumps, vaulting, wall runs, wind influence, slides, "
-            "air dashes, contracts, laser gates, drones and score multipliers."
+            "air dashes, operation objectives, contracts, laser gates, drones and score multipliers."
         ),
         controls=["A/D STRAFE", "SPACE JUMP / WALL JUMP", "SHIFT DASH", "CTRL SLIDE", "W SPEED PUSH"],
         accent=ORANGE,
@@ -129,6 +130,7 @@ DEFAULT_SETTINGS = {
     "sfx_volume": 0.78,
     "mouse_sensitivity": 0.18,
     "camera_shake": True,
+    "camera_roll": True,
     "particles": True,
     "fullscreen": False,
     "vsync": True,
@@ -152,10 +154,16 @@ DEFAULT_SETTINGS = {
     "weather_gameplay": True,
     "dynamic_world_lighting": True,
     "contracts": True,
+    "missions": True,
     "run_perks": True,
+    "run_modifiers": True,
     "destructible_props": True,
     "surface_feedback": True,
     "weapon_loadout": True,
     "swept_projectiles": True,
     "hit_reactions": True,
+    "meta_progression": True,
+    "achievement_toasts": True,
+    "run_payouts": True,
+    "reduced_flashes": False,
 }

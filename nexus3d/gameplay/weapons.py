@@ -29,12 +29,12 @@ class WeaponRuntime:
 
 
 class WeaponLoadoutDirector:
-    """Runtime three-weapon loadout layered over the existing FPS rules."""
+    """Runtime three-weapon loadout with persistent + run modifier stacking."""
 
     SPECS = (
-        WeaponSpec("ar", "VX-7 ASSAULT", 29.0, 0.095, 0.014, 30, 150, 1.52, (1.0,1.0,1.0), (0.05,0.90,1.0,1.0)),
-        WeaponSpec("smg", "KITE-9 SMG", 18.5, 0.060, 0.024, 42, 210, 1.28, (0.94,0.82,0.92), (0.60,0.24,1.0,1.0)),
-        WeaponSpec("dmr", "SENTINEL DMR", 52.0, 0.235, 0.006, 12, 72, 1.78, (1.02,1.22,0.96), (1.0,0.42,0.08,1.0)),
+        WeaponSpec("ar", "VX-7 ASSAULT", 29.0, 0.095, 0.014, 30, 150, 1.52, (1.0, 1.0, 1.0), (0.05, 0.90, 1.0, 1.0)),
+        WeaponSpec("smg", "KITE-9 SMG", 18.5, 0.060, 0.024, 42, 210, 1.28, (0.94, 0.82, 0.92), (0.60, 0.24, 1.0, 1.0)),
+        WeaponSpec("dmr", "SENTINEL DMR", 52.0, 0.235, 0.006, 12, 72, 1.78, (1.02, 1.22, 0.96), (1.0, 0.42, 0.08, 1.0)),
     )
 
     def __init__(self, app) -> None:
@@ -81,20 +81,41 @@ class WeaponLoadoutDirector:
                 mode.key.bind(str(slot))
             except Exception:
                 pass
+
         level = int(self.app.save.profile.get("level", 1))
-        damage_bonus = min(0.18, max(0, level - 1) * 0.006)
+        level_bonus = min(0.16, max(0, level - 1) * 0.004)
+        reserve_mult = 1.0
+        progression = getattr(self.app, "progression", None)
+        if progression is not None:
+            try:
+                reserve_mult = float(progression.reserve_multiplier())
+            except Exception:
+                reserve_mult = 1.0
+
         for slot, spec in enumerate(self.SPECS, start=1):
             scaled_spec = WeaponSpec(
-                spec.weapon_id, spec.name, spec.damage * (1.0 + damage_bonus),
-                spec.fire_interval, spec.spread, spec.magazine, spec.reserve,
-                spec.reload_time, spec.visual_scale, spec.accent,
+                spec.weapon_id,
+                spec.name,
+                spec.damage * (1.0 + level_bonus),
+                spec.fire_interval,
+                spec.spread,
+                spec.magazine,
+                max(spec.magazine, int(round(spec.reserve * reserve_mult))),
+                spec.reload_time,
+                spec.visual_scale,
+                spec.accent,
             )
-            self.weapons[slot] = WeaponRuntime(scaled_spec, scaled_spec.magazine, scaled_spec.reserve)
+            self.weapons[slot] = WeaponRuntime(
+                scaled_spec,
+                scaled_spec.magazine,
+                scaled_spec.reserve,
+            )
 
         self.weapons[1].ammo = int(getattr(mode, "ammo", self.weapons[1].ammo))
         self.weapons[1].reserve = int(getattr(mode, "reserve_ammo", self.weapons[1].reserve))
         self.active_slot = 1
         self._apply(mode, self.weapons[1])
+
         self.label = DirectLabel(
             parent=mode.hud_root,
             text="",
@@ -116,12 +137,12 @@ class WeaponLoadoutDirector:
         self.active_slot = slot
         target = self.weapons[slot]
         self._apply(mode, target)
-        self.switch_cooldown = 0.26
+        self.switch_cooldown = 0.22
         try:
             mode.reloading = False
             mode.reload_timer = 0.0
-            mode.fire_timer = max(float(getattr(mode, "fire_timer", 0.0)), 0.16)
-            mode.spawn_floating_text(target.spec.name, (0.0,-0.12), target.spec.accent, 0.030, 0.55)
+            mode.fire_timer = max(float(getattr(mode, "fire_timer", 0.0)), 0.12)
+            mode.spawn_floating_text(target.spec.name, (0.0, -0.12), target.spec.accent, 0.030, 0.55)
             self.app.audio.play("reload", self.app.sfx_volume() * 0.22, 1.45)
         except Exception:
             pass
@@ -138,8 +159,6 @@ class WeaponLoadoutDirector:
         spec = runtime.spec
         mode.weapon_name = spec.name
         self._apply_perk_stats(mode, spec)
-        # Native spread is only written during a switch. CombatFeelDirector owns
-        # ADS tightening and recoil bloom after this point.
         mode.weapon_spread = spec.spread
         mode.ammo = runtime.ammo
         mode.reserve_ammo = runtime.reserve
@@ -158,20 +177,28 @@ class WeaponLoadoutDirector:
 
     @staticmethod
     def _apply_perk_stats(mode, spec: WeaponSpec) -> None:
-        damage_multiplier = max(0.25, float(getattr(mode, "weapon_damage_multiplier", 1.0)))
-        reload_multiplier = max(0.45, float(getattr(mode, "weapon_reload_multiplier", 1.0)))
+        run_damage = max(0.25, float(getattr(mode, "weapon_damage_multiplier", 1.0) or 1.0))
+        permanent_damage = max(0.25, float(getattr(mode, "permanent_damage_multiplier", 1.0) or 1.0))
+        conditional_damage = max(0.25, float(getattr(mode, "conditional_damage_multiplier", 1.0) or 1.0))
+        run_reload = max(0.45, float(getattr(mode, "weapon_reload_multiplier", 1.0) or 1.0))
+        permanent_reload = max(0.45, float(getattr(mode, "permanent_reload_multiplier", 1.0) or 1.0))
+        fire_rate_mult = max(0.55, float(getattr(mode, "weapon_fire_rate_multiplier", 1.0) or 1.0))
         mag_bonus = max(0, int(getattr(mode, "weapon_mag_bonus", 0)))
-        mode.weapon_damage = spec.damage * damage_multiplier
-        mode.fire_interval = spec.fire_interval
+
+        mode.weapon_damage = spec.damage * run_damage * permanent_damage * conditional_damage
+        mode.fire_interval = max(0.035, spec.fire_interval * fire_rate_mult)
         mode.magazine_size = spec.magazine + mag_bonus
-        mode.reload_time = spec.reload_time * reload_multiplier
+        mode.reload_time = max(0.55, spec.reload_time * run_reload * permanent_reload)
 
     def _update_label(self, mode) -> None:
         if self.label is None:
             return
         parts = []
         for slot in (1, 2, 3):
-            spec = self.weapons[slot].spec
+            runtime = self.weapons.get(slot)
+            if runtime is None:
+                continue
+            spec = runtime.spec
             short = "AR" if spec.weapon_id == "ar" else "SMG" if spec.weapon_id == "smg" else "DMR"
             marker = "[" if slot == self.active_slot else " "
             end = "]" if slot == self.active_slot else " "

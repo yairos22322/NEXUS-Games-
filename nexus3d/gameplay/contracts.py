@@ -18,14 +18,11 @@ class Contract:
     reward_score: int
     reward_xp: int
     reward_credits: int
+    relative: bool = True
 
 
 class ContractDirector:
-    """Creates short optional objectives that make each run feel authored.
-
-    Contracts never block the core mode. They observe existing mode state,
-    reward successful play and immediately roll into a harder follow-up goal.
-    """
+    """Short optional side objectives that complement V4 operations."""
 
     def __init__(self, app) -> None:
         self.app = app
@@ -55,7 +52,11 @@ class ContractDirector:
             return
 
         value = self._metric_value(mode, self.contract.metric)
-        progress = max(0.0, value - self.contract.start_value)
+        progress = (
+            max(0.0, value - self.contract.start_value)
+            if self.contract.relative
+            else max(0.0, value)
+        )
         ratio = max(0.0, min(1.0, progress / max(0.001, self.contract.target)))
         self._update_ui(progress, ratio)
 
@@ -80,7 +81,7 @@ class ContractDirector:
             parent=mode.hud_root,
             frameColor=(0.015, 0.025, 0.040, 0.84),
             frameSize=(-0.02, 0.76, -0.13, 0.13),
-            pos=(-1.62, 0, 0.63),
+            pos=(-1.62, 0, 0.59),
         )
         self.title_label = DirectLabel(
             parent=self.panel,
@@ -118,53 +119,46 @@ class ContractDirector:
         score_reward = 650 + tier * 220
         xp_reward = 70 + tier * 20
         credits_reward = 20 + tier * 5
+        cycle = tier % 3
+        relative = True
 
         if game_id == "neon_ops":
-            metric = "kills" if tier % 2 == 0 else "wave"
-            if metric == "kills":
-                target = 6 + tier * 2
-                label = f"Eliminate {int(target)} hostiles"
+            if cycle == 0:
+                metric, target, label = "kills", 6 + tier * 2, f"Eliminate {6 + tier * 2} hostiles"
+            elif cycle == 1:
+                metric, target, label = "wave", 2, "Clear 2 combat waves"
             else:
-                target = 2
-                label = "Clear 2 combat waves"
-            start = self._metric_value(mode, metric)
+                metric, target, label, relative = "combo", 6 + min(4, tier), f"Reach x{6 + min(4, tier)} combo", False
         elif game_id == "street_rush":
-            metric = "distance" if tier % 2 == 0 else "score"
-            if metric == "distance":
-                target = 650.0 + tier * 160.0
-                label = f"Drive {int(target)} m"
+            if cycle == 0:
+                metric, target, label = "distance", 650.0 + tier * 160.0, f"Drive {int(650 + tier * 160)} m"
+            elif cycle == 1:
+                metric, target, label = "score", 2200.0 + tier * 500.0, f"Earn {int(2200 + tier * 500):,} score"
             else:
-                target = 2200.0 + tier * 500.0
-                label = f"Earn {int(target):,} score"
-            start = self._metric_value(mode, metric)
+                metric, target, label, relative = "combo", 5 + min(5, tier), f"Reach x{5 + min(5, tier)} close call", False
         elif game_id == "zombie_siege":
-            metric = "wave" if tier % 2 == 0 else "survival"
-            if metric == "wave":
-                target = 2
-                label = "Survive 2 nights"
+            if cycle == 0:
+                metric, target, label = "wave", 2, "Survive 2 nights"
+            elif cycle == 1:
+                metric, target, label = "survival", 38.0 + tier * 8.0, f"Stay alive {int(38 + tier * 8)} sec"
             else:
-                target = 38.0 + tier * 8.0
-                label = f"Stay alive {int(target)} sec"
-            start = self._metric_value(mode, metric)
+                metric, target, label = "kills", 12 + tier * 3, f"Eliminate {12 + tier * 3} infected"
         elif game_id == "orbital_wars":
-            metric = "kills" if tier % 2 == 0 else "wave"
-            if metric == "kills":
-                target = 7 + tier * 2
-                label = f"Destroy {int(target)} hostiles"
+            if cycle == 0:
+                metric, target, label = "kills", 7 + tier * 2, f"Destroy {7 + tier * 2} hostiles"
+            elif cycle == 1:
+                metric, target, label = "wave", 2, "Clear 2 sectors"
             else:
-                target = 2
-                label = "Clear 2 sectors"
-            start = self._metric_value(mode, metric)
+                metric, target, label, relative = "combo", 5 + min(5, tier), f"Reach x{5 + min(5, tier)} chain", False
         else:
-            metric = "distance" if tier % 2 == 0 else "multiplier"
-            if metric == "distance":
-                target = 720.0 + tier * 180.0
-                label = f"Run {int(target)} m"
+            if cycle == 0:
+                metric, target, label = "distance", 720.0 + tier * 180.0, f"Run {int(720 + tier * 180)} m"
+            elif cycle == 1:
+                metric, target, label, relative = "multiplier", 4 + min(5, tier), f"Reach x{4 + min(5, tier)} flow", False
             else:
-                target = 4 + min(5, tier)
-                label = f"Reach x{int(target)} flow"
-            start = 0.0 if metric == "multiplier" else self._metric_value(mode, metric)
+                metric, target, label = "score", 2800.0 + tier * 650.0, f"Earn {int(2800 + tier * 650):,} score"
 
+        start = 0.0 if not relative else self._metric_value(mode, metric)
         return Contract(
             title="FIELD CONTRACT",
             label=label,
@@ -174,6 +168,7 @@ class ContractDirector:
             reward_score=score_reward,
             reward_xp=xp_reward,
             reward_credits=credits_reward,
+            relative=relative,
         )
 
     def _metric_value(self, mode, metric: str) -> float:
@@ -193,6 +188,8 @@ class ContractDirector:
             return float(getattr(mode, "elapsed", 0.0))
         if metric == "multiplier":
             return float(getattr(mode, "multiplier", 1.0))
+        if metric == "combo":
+            return float(getattr(mode, "combo", 0.0))
         return 0.0
 
     def _update_ui(self, progress: float, ratio: float) -> None:
@@ -200,11 +197,7 @@ class ContractDirector:
             return
         self.progress_label["text"] = self.contract.label
         if self.title_label is not None:
-            self.title_label["text"] = (
-                f"FIELD CONTRACT  //  {int(progress):d}/{int(self.contract.target):d}"
-                if self.contract.target >= 2
-                else "FIELD CONTRACT"
-            )
+            self.title_label["text"] = f"FIELD CONTRACT  //  {int(progress):d}/{int(self.contract.target):d}"
         if self.bar is not None:
             self.bar["frameSize"] = (0.02, 0.02 + 0.69 * ratio, -0.080, -0.058)
 
@@ -213,17 +206,23 @@ class ContractDirector:
         if contract is None:
             return
         mode.score = float(getattr(mode, "score", 0.0)) + contract.reward_score
-        try:
-            self.app.save.profile["credits"] = int(self.app.save.profile.get("credits", 0)) + contract.reward_credits
-            self.app.save.add_xp(contract.reward_xp)
-        except Exception:
-            pass
+        credit_mult = 1.0
+        progression = getattr(self.app, "progression", None)
+        if progression is not None:
+            try:
+                credit_mult = float(progression.credit_multiplier())
+            except Exception:
+                pass
+        credits = max(1, int(round(contract.reward_credits * credit_mult)))
+        self.app.save.add_credits(credits, save=False)
+        self.app.save.add_xp(contract.reward_xp)
+        self.app.save.record_contract_complete()
         try:
             mode.spawn_floating_text(
-                f"CONTRACT COMPLETE  +{contract.reward_score} SCORE",
-                (0.0, 0.30),
+                f"CONTRACT COMPLETE  +{contract.reward_score} SCORE  +{credits} CR",
+                (0.0, 0.22),
                 (0.15, 1.0, 0.55, 1.0),
-                0.040,
+                0.036,
                 1.15,
             )
             self.app.audio.play("pickup", self.app.sfx_volume() * 0.72, 1.08)
@@ -244,3 +243,6 @@ class ContractDirector:
         self.progress_label = None
         self.bar_bg = None
         self.bar = None
+
+    def destroy(self) -> None:
+        self.reset()

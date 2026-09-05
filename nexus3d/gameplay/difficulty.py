@@ -16,13 +16,12 @@ class PerformanceWindow:
 
 
 class AdaptiveDifficultyDirector:
-    """Soft dynamic difficulty layered around the player's selected preset.
+    """Soft, reversible difficulty around the player's selected preset.
 
-    This never changes the chosen RECRUIT/OPERATIVE/VETERAN setting. It only
-    nudges encounter intensity within a small range so strong runs continue to
-    escalate while a struggling player gets breathing room. Future spawns pick
-    up the adjusted `mode.difficulty_scale`; existing enemies are not suddenly
-    rescaled mid-fight.
+    V4 removes the V3 behaviour where some player max-speed / fire-rate values
+    could ratchet upward permanently during a run. Only future encounter pressure
+    is adjusted. Player power remains the product of chosen difficulty, upgrades
+    and perks, not hidden one-way DDA mutations.
     """
 
     def __init__(self) -> None:
@@ -82,8 +81,6 @@ class AdaptiveDifficultyDirector:
         self.window.damage_rate = self._damage_memory * 0.75
 
         target = self._target_intensity(mode)
-        # Difficulty rises slower than it falls. Players notice unfair spikes
-        # much more than gradual extra pressure.
         sharpness = 0.22 if target > self.window.intensity else 0.62
         blend = 1.0 - math.exp(-sharpness * step)
         self.window.intensity += (target - self.window.intensity) * blend
@@ -109,7 +106,10 @@ class AdaptiveDifficultyDirector:
             "cyber_runner": 85.0,
         }
         threshold = score_thresholds.get(game_id, 100.0)
-        performance = max(-1.0, min(1.0, (score_rate - threshold) / max(40.0, threshold)))
+        performance = max(
+            -1.0,
+            min(1.0, (score_rate - threshold) / max(40.0, threshold)),
+        )
 
         target = 1.0 + performance * 0.09
         if health < 32.0:
@@ -124,33 +124,20 @@ class AdaptiveDifficultyDirector:
         elif damage > 10.0:
             target -= 0.035
 
-        # Long successful runs should continue to become more dramatic.
         target += min(0.04, max(0.0, alive - 80.0) / 3600.0)
         return max(0.88, min(1.16, target))
 
     def _apply_mode_pressure(self, mode) -> None:
         intensity = self.window.intensity
         game_id = str(getattr(mode, "game_id", ""))
+        mode.v4_encounter_intensity = intensity
 
-        # These are intentionally subtle and modify only timers/caps the mode
-        # already owns. The underlying game rules remain comprehensible.
         if game_id == "neon_ops" and hasattr(mode, "spawn_interval"):
-            base = 0.42
-            mode.spawn_interval = max(0.26, base / max(0.92, intensity))
-        elif game_id == "street_rush" and hasattr(mode, "max_speed"):
-            # Do not reduce the player's maximum speed when struggling. Strong
-            # runs get a slightly higher skill ceiling instead.
-            mode.max_speed = max(float(mode.max_speed), 76.0 + max(0.0, intensity - 1.0) * 26.0)
+            mode.spawn_interval = max(0.26, 0.42 / max(0.92, intensity))
         elif game_id == "zombie_siege" and hasattr(mode, "wave_break"):
             if getattr(mode, "spawn_remaining", 1) <= 0 and not getattr(mode, "zombies", []):
-                mode.wave_break = max(0.85, float(mode.wave_break))
-        elif game_id == "orbital_wars" and hasattr(mode, "laser_interval"):
-            # Never nerf player weapons. On a strong run, modestly improve the
-            # laser cadence so harder encounters remain satisfying.
-            base = 0.12
-            mode.laser_interval = base * (1.0 - max(0.0, intensity - 1.0) * 0.22)
-        elif game_id == "cyber_runner" and hasattr(mode, "max_speed"):
-            mode.max_speed = max(float(mode.max_speed), 32.0 + max(0.0, intensity - 1.0) * 20.0)
+                desired = 1.4 / max(0.92, intensity)
+                mode.wave_break = max(0.85, min(float(mode.wave_break), desired))
 
     @staticmethod
     def _health_value(mode) -> Optional[float]:
